@@ -1,0 +1,253 @@
+syntax = "proto3";
+
+package platform;
+
+service AuthService {
+  rpc Register (RegisterRequest) returns (AuthResponse);
+  rpc Login (LoginRequest) returns (AuthResponse);
+}
+
+service EmployeeService {
+  rpc CreateEmployee (CreateEmployeeRequest) returns (EmployeeResponse);
+  rpc UpdateEmployee (UpdateEmployeeRequest) returns (EmployeeResponse);
+  rpc GetEmployee (GetEmployeeRequest) returns (EmployeeResponse);
+  rpc ListEmployees (ListEmployeesRequest) returns (ListEmployeesResponse);
+  rpc DeleteEmployee (DeleteEmployeeRequest) returns (OperationResponse);
+}
+
+service DeviceService {
+  rpc RegisterDevice (RegisterDeviceRequest) returns (DeviceResponse);
+  rpc Heartbeat (DeviceHeartbeatRequest) returns (DeviceResponse);
+  rpc ListDevices (ListDevicesRequest) returns (ListDevicesResponse);
+}
+
+service AttendanceService {
+  rpc ProcessRfidEvent (ProcessRfidEventRequest) returns (AttendanceEventResponse);
+  rpc ProcessFaceEvent (ProcessFaceEventRequest) returns (AttendanceEventResponse);
+  rpc GetAttendanceHistory (AttendanceHistoryRequest) returns (AttendanceHistoryResponse);
+  rpc GetAttendanceSessions (AttendanceSessionsRequest) returns (AttendanceSessionsResponse);
+  rpc WatchEvents (Empty) returns (stream RealtimeEventMessage);
+}
+
+service SettingsService {
+  rpc GetSettings (Empty) returns (SettingsResponse);
+  rpc UpdateSettings (UpdateSettingsRequest) returns (OperationResponse);
+}
+
+message Empty {}
+
+message RealtimeEventMessage {
+  string channel = 1;
+  string type = 2;
+  string payloadJson = 3;
+}
+
+message RegisterRequest {
+  string name = 1;
+  string email = 2;
+  string password = 3;
+  string role = 4;
+}
+
+message LoginRequest {
+  string email = 1;
+  string password = 2;
+}
+
+message AuthUser {
+  string id = 1;
+  string name = 2;
+  string email = 3;
+  string role = 4;
+}
+
+message AuthResponse {
+  string token = 1;
+  AuthUser user = 2;
+}
+
+message CreateEmployeeRequest {
+  string fullName = 1;
+  string department = 2;
+  string position = 3;
+  string rfidUid = 4;
+  string faceImagePath = 5;
+  string faceImageBase64 = 6;
+  bool isActive = 7;
+}
+
+message UpdateEmployeeRequest {
+  string id = 1;
+  string fullName = 2;
+  string department = 3;
+  string position = 4;
+  string rfidUid = 5;
+  string faceImagePath = 6;
+  string faceImageBase64 = 7;
+  bool isActive = 8;
+}
+
+message GetEmployeeRequest {
+  string id = 1;
+}
+
+message DeleteEmployeeRequest {
+  string id = 1;
+}
+
+message ListEmployeesRequest {
+  string search = 1;
+}
+
+message EmployeeMessage {
+  string id = 1;
+  string fullName = 2;
+  string department = 3;
+  string position = 4;
+  string rfidUid = 5;
+  string faceImagePath = 6;
+  bool isActive = 7;
+  string createdAt = 8;
+  string updatedAt = 9;
+}
+
+message EmployeeResponse {
+  EmployeeMessage employee = 1;
+}
+
+message ListEmployeesResponse {
+  repeated EmployeeMessage employees = 1;
+}
+
+message RegisterDeviceRequest {
+  string deviceCode = 1;
+  string type = 2;
+  string name = 3;
+  string location = 4;
+  string metadataJson = 5;
+}
+
+message DeviceHeartbeatRequest {
+  string deviceCode = 1;
+  string type = 2;
+  string metadataJson = 3;
+}
+
+message ListDevicesRequest {}
+
+message DeviceMessage {
+  string id = 1;
+  string deviceCode = 2;
+  string type = 3;
+  string name = 4;
+  string location = 5;
+  string status = 6;
+  string lastSeenAt = 7;
+  string metadataJson = 8;
+  bool isOnline = 9;
+  string createdAt = 10;
+  string updatedAt = 11;
+}
+
+message DeviceResponse {
+  DeviceMessage device = 1;
+}
+
+message ListDevicesResponse {
+  repeated DeviceMessage devices = 1;
+}
+
+message ProcessRfidEventRequest {
+  string uid = 1;
+  string deviceCode = 2;
+  string pairingKey = 3;
+  string correlationId = 4;
+  string capturedAt = 5;
+}
+
+message ProcessFaceEventRequest {
+  string imagePath = 1;
+  string imageBase64 = 2;
+  string deviceCode = 3;
+  string pairingKey = 4;
+  string correlationId = 5;
+  string capturedAt = 6;
+  string uid = 7;
+}
+
+message AttendanceEventResponse {
+  string message = 1;
+  string correlationId = 2;
+}
+
+message AttendanceHistoryRequest {
+  string status = 1;
+  string employeeId = 2;
+  int32 limit = 3;
+  int32 page = 4;
+  string date = 5;
+}
+
+message AttendanceRecordMessage {
+  string id = 1;
+  string sessionId = 2;
+  string employeeId = 3;
+  string employeeName = 4;
+  string rfidUid = 5;
+  string status = 6;
+  double confidence = 7;
+  string reason = 8;
+  string imagePath = 9;
+  string rfidDeviceCode = 10;
+  string faceDeviceCode = 11;
+  string verifiedAt = 12;
+  string createdAt = 13;
+  string punctuality = 14;
+  string category = 15;
+}
+
+message AttendanceHistoryResponse {
+  repeated AttendanceRecordMessage records = 1;
+  int32 totalRecords = 2;
+}
+
+message AttendanceSessionsRequest {
+  string status = 1;
+  int32 limit = 2;
+}
+
+message AttendanceSessionMessage {
+  string id = 1;
+  string correlationId = 2;
+  string pairingKey = 3;
+  string rfidUid = 4;
+  string rfidDeviceCode = 5;
+  string faceDeviceCode = 6;
+  string faceImagePath = 7;
+  bool verificationQueued = 8;
+  int32 verificationAttempts = 9;
+  string status = 10;
+  string reason = 11;
+  string startedAt = 12;
+  string lastEventAt = 13;
+  string verifiedAt = 14;
+}
+
+message AttendanceSessionsResponse {
+  repeated AttendanceSessionMessage sessions = 1;
+}
+
+message OperationResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message SettingsResponse {
+  string entry_time = 1;
+  string exit_time = 2;
+}
+
+message UpdateSettingsRequest {
+  string entry_time = 1;
+  string exit_time = 2;
+}

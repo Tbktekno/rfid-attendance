@@ -1,0 +1,9 @@
+fastapi==0.115.12
+uvicorn==0.34.2
+numpy<2.0.0
+Pillow==11.2.1
+mediapipe==0.10.20
+opencv-python-headless
+deepface
+tensorflow
+tf-keras
