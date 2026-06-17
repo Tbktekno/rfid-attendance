@@ -260,6 +260,7 @@ export class AttendanceRepository {
     status?: "VALID" | "INVALID";
     employeeId?: string;
     date?: string;
+    month?: string;
     limit: number;
     page: number;
   }): Promise<{
@@ -289,14 +290,17 @@ export class AttendanceRepository {
        FROM attendance_records ar
        WHERE (? IS NULL OR ar.status = ?)
          AND (? IS NULL OR ar.employee_id = ?)
-         AND (? IS NULL OR date(ar.verified_at, 'localtime') = date(?))`,
+         AND (? IS NULL OR date(ar.verified_at, 'localtime') = date(?))
+         AND (? IS NULL OR strftime('%Y-%m', ar.verified_at, 'localtime') = ?)`,
       [
         input.status ?? null,
         input.status ?? null,
         input.employeeId ?? null,
         input.employeeId ?? null,
         input.date ?? null,
-        input.date ?? null
+        input.date ?? null,
+        input.month ?? null,
+        input.month ?? null
       ]
     );
 
@@ -313,6 +317,7 @@ export class AttendanceRepository {
        WHERE (? IS NULL OR ar.status = ?)
          AND (? IS NULL OR ar.employee_id = ?)
          AND (? IS NULL OR date(ar.verified_at, 'localtime') = date(?))
+         AND (? IS NULL OR strftime('%Y-%m', ar.verified_at, 'localtime') = ?)
        ORDER BY ar.verified_at DESC
        LIMIT ? OFFSET ?`,
       [
@@ -322,6 +327,8 @@ export class AttendanceRepository {
         input.employeeId ?? null,
         input.date ?? null,
         input.date ?? null,
+        input.month ?? null,
+        input.month ?? null,
         input.limit,
         offset
       ]

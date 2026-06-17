@@ -24,12 +24,25 @@ export interface AttendanceReportData {
 }
 
 export class PdfGenerator {
-  static async generateAttendanceReport(data: AttendanceReportData[], title: string = "Laporan Absensi Karyawan"): Promise<Buffer> {
+  static async generateAttendanceReport(
+    data: AttendanceReportData[], 
+    options?: { month?: string; employeeName?: string }
+  ): Promise<Buffer> {
+    const isMonthly = !!(options?.month && options?.employeeName);
+    const title = isMonthly ? "Laporan Absensi Karyawan (Bulanan)" : "Laporan Absensi Karyawan";
+    
+    let totalHadir = 0;
+    let totalBolos = 0;
+    if (isMonthly) {
+       totalHadir = data.filter(d => d.punctuality !== "BOLOS").length;
+       totalBolos = data.filter(d => d.punctuality === "BOLOS").length;
+    }
+
     const docDefinition: TDocumentDefinitions = {
       content: [
         { text: title, style: "header" },
-        { text: `Tanggal Cetak: ${new Date().toLocaleString("id-ID")}`, style: "subheader" },
-        { text: "\n" },
+        isMonthly ? { text: `Bulan: ${options.month}\nNama Karyawan: ${options.employeeName}`, style: "subheader" } : { text: `Tanggal Cetak: ${new Date().toLocaleString("id-ID")}`, style: "subheader" },
+        isMonthly ? { text: `Total Hadir: ${totalHadir} hari   |   Total Tidak Hadir: ${totalBolos} hari\n\n`, style: "subheader" } : { text: "\n" },
         {
           table: {
             headerRows: 1,

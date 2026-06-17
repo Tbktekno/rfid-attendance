@@ -35,7 +35,7 @@ export const createGatewayApp = () => {
     origin: true,
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: "*",
+    allowedHeaders: ["Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With", "x-device-code", "x-uid", "x-pairing-key"],
     exposedHeaders: ["Content-Disposition", "Content-Length", "Content-Type"]
   }));
   app.use(express.json({ limit: "10mb" }));

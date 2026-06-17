@@ -24,6 +24,8 @@ interface AttendanceState {
   statusFilter: "ALL" | "VALID" | "INVALID";
   deptFilter: string;
   dateFilter: string;
+  monthFilter: string;
+  employeeFilter: string;
   isLoading: boolean;
   isStreaming: boolean;
   refreshAll: () => Promise<void>;
@@ -36,6 +38,8 @@ interface AttendanceState {
   setStatusFilter: (value: "ALL" | "VALID" | "INVALID") => void;
   setDeptFilter: (value: string) => void;
   setDateFilter: (value: string) => void;
+  setMonthFilter: (value: string) => void;
+  setEmployeeFilter: (value: string) => void;
   summary: () => AttendanceSummary;
   // Backward compatibility
   students: Employee[];
@@ -94,13 +98,15 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   statusFilter: "ALL",
   deptFilter: "ALL",
   dateFilter: getTodayStr(),
+  monthFilter: "",
+  employeeFilter: "",
   isLoading: false,
   isStreaming: false,
   async refreshAll() {
     set({ isLoading: true });
 
     try {
-      const { page, pageSize, statusFilter, dateFilter, deptFilter } = get();
+      const { page, pageSize, statusFilter, dateFilter, monthFilter, employeeFilter } = get();
       const [employees, devices, sessions, historyData] = await Promise.all([
         attendanceService.getEmployees(),
         attendanceService.getDevices(),
@@ -110,7 +116,8 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
           limit: pageSize, 
           status: statusFilter === "ALL" ? undefined : statusFilter,
           date: dateFilter || undefined,
-          // Note: Backend might not support dept filter yet in query, but we send it
+          month: monthFilter || undefined,
+          employeeId: employeeFilter || undefined
         })
       ]);
 
@@ -130,7 +137,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   async fetchHistory(page, limit) {
     const p = page ?? get().page;
     const l = limit ?? get().pageSize;
-    const { statusFilter, dateFilter, deptFilter } = get();
+    const { statusFilter, dateFilter, monthFilter, employeeFilter } = get();
     
     set({ isLoading: true });
     try {
@@ -138,7 +145,9 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
         page: p,
         limit: l,
         status: statusFilter === "ALL" ? undefined : statusFilter,
-        date: dateFilter || undefined
+        date: dateFilter || undefined,
+        month: monthFilter || undefined,
+        employeeId: employeeFilter || undefined
       });
       set({ 
         history: data.records, 
@@ -181,7 +190,15 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
     get().fetchHistory(1);
   },
   setDateFilter(value) {
-    set({ dateFilter: value, page: 1 });
+    set({ dateFilter: value, monthFilter: "", page: 1 }); // Clear month if date is set
+    get().fetchHistory(1);
+  },
+  setMonthFilter(value) {
+    set({ monthFilter: value, dateFilter: "", page: 1 }); // Clear date if month is set
+    get().fetchHistory(1);
+  },
+  setEmployeeFilter(value) {
+    set({ employeeFilter: value, page: 1 });
     get().fetchHistory(1);
   },
   summary() {

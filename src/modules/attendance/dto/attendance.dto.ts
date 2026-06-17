@@ -27,7 +27,8 @@ export const attendanceHistorySchema = z.object({
   studentId: z.string().optional().transform(v => v === "" ? undefined : v), // Alias for backward compatibility
   limit: z.coerce.number().min(1).max(1000).optional().default(50),
   page: z.coerce.number().min(1).optional().default(1),
-  date: z.string().optional().transform(v => v === "" ? undefined : v)
+  date: z.string().optional().transform(v => v === "" ? undefined : v),
+  month: z.string().optional().transform(v => v === "" ? undefined : v).refine(v => !v || /^\d{4}-\d{2}$/.test(v), "Invalid month format YYYY-MM")
 }).transform(data => ({
   ...data,
   employeeId: data.employeeId || data.studentId

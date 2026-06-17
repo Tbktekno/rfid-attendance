@@ -9,6 +9,7 @@ export const attendanceService = {
     employeeId?: string;
     studentId?: string;
     date?: string;
+    month?: string;
   }): Promise<{ records: AttendanceRecord[]; totalRecords: number }> {
     const { data } = await http.get<{ records: AttendanceRecord[]; totalRecords: number }>("/api/v1/attendance/history", {
       params: { 
@@ -16,7 +17,8 @@ export const attendanceService = {
         limit: params.limit ?? 50,
         status: params.status || undefined,
         employeeId: params.employeeId || params.studentId || undefined,
-        date: params.date || undefined
+        date: params.date || undefined,
+        month: params.month || undefined
       }
     });
     return data;
@@ -43,6 +45,7 @@ export const attendanceService = {
     status?: string;
     employeeId?: string;
     date?: string;
+    month?: string;
   }): Promise<void> {
     try {
       const response = await http.get("/api/v1/attendance/export/pdf", {

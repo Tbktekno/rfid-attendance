@@ -186,6 +186,7 @@ message AttendanceHistoryRequest {
   int32 limit = 3;
   int32 page = 4;
   string date = 5;
+  string month = 6;
 }
 
 message AttendanceRecordMessage {

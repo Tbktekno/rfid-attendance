@@ -126,14 +126,13 @@ export class AttendanceController {
 
   async exportPdf(req: Request, res: Response): Promise<void> {
     const payload = attendanceHistorySchema.parse(req.query);
-    // Set higher limit for export or handle all data, and restrict status to strictly VALID
     const response = await promisifyGrpc<{ records: Array<any> }>(
       grpcClients.attendance,
       "GetAttendanceHistory",
-      { ...payload, status: "VALID", limit: 1000 } // Default to 1000 records for export, only valid ones
+      { ...payload, limit: 1000 } // Use the payload status filter, default no strict VALID so we can see BOLOS
     );
 
-    const records = (response.records || []).filter((record) => record.status === "VALID");
+    const records = response.records || [];
     const reportData = records.map((record) => ({
       rfidUid: record.rfidUid,
       employeeName: record.employeeName,
@@ -143,7 +142,10 @@ export class AttendanceController {
       punctuality: record.punctuality
     }));
 
-    const buffer = await PdfGenerator.generateAttendanceReport(reportData);
+    const buffer = await PdfGenerator.generateAttendanceReport(reportData, {
+      month: payload.month,
+      employeeName: reportData[0]?.employeeName || "Karyawan"
+    });
 
     res.setHeader("Content-Type", "application/pdf");
     res.send(buffer);

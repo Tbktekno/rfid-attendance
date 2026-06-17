@@ -8,3 +8,5 @@ storage/uploads/*
 storage/*.sqlite
 *.log
 python-face-service/.venv/
+.ai/
+.venv/
