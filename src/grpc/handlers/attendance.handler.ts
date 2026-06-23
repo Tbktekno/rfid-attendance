@@ -8,6 +8,7 @@ import { attendanceService } from "../../shared/container";
 import { toGrpcError } from "../../shared/grpc/grpc-error";
 import { logger } from "../../shared/logger";
 import { realtimeEvents } from "../../shared/realtime/realtime-events";
+import { EmployeeRepository } from "../../modules/employee/repository/employee.repository";
 
 const mapRecord = (record: any) => ({
   id: record.id,
@@ -52,6 +53,28 @@ const mapSession = (session: any) => {
 };
 
 export const attendanceHandlers = {
+  CheckRfid: async (call: any, callback: any) => {
+    try {
+      const { uid } = call.request;
+      const employeeRepo = new EmployeeRepository();
+      const employee = await employeeRepo.findByRfidUid(uid);
+
+      if (!employee) {
+        realtimeEvents.publish({
+          channel: "device",
+          type: "device.rfid.scanned",
+          payload: { uid }
+        } as any);
+
+        callback(null, { registered: false, employeeId: "", employeeName: "" });
+        return;
+      }
+
+      callback(null, { registered: true, employeeId: employee.id, employeeName: employee.fullName });
+    } catch (error) {
+      callback(toGrpcError(error));
+    }
+  },
   ProcessRfidEvent: async (call: any, callback: any) => {
     try {
       logger.info({ request: call.request }, "gRPC: ProcessRfidEvent");

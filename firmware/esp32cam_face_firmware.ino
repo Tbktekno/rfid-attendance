@@ -6,7 +6,7 @@
 // ================= CONFIG =================
 const char* ssid = "Ikannn";
 const char* password = "11122233344556";
-const char* serverUrl = "http://10.228.235.114:3000";
+const char* serverUrl = "http://10.16.199.114:3000";
 
 const char* deviceCode = "ESP32CAM-MASTER-01";
 const char* pairingKey = "ROOM-1";
@@ -33,6 +33,7 @@ const char* pairingKey = "ROOM-1";
 
 // Serial dari ESP8266
 #define RX2_PIN 13
+#define TX2_PIN 12 // Pin TX untuk mengirim data balik ke ESP8266
 
 unsigned long lastHeartbeat = 0;
 
@@ -129,17 +130,29 @@ void sendHeartbeat() {
 
 // ================= CAPTURE & SEND =================
 void captureAndSend(String uid) {
-  // Nyalakan Flash sebagai indikator
+  // 1. Nyalakan Flash sebagai indikator dan penerang
   digitalWrite(FLASH_GPIO_NUM, HIGH);
-  delay(500); // Beri waktu sensor kamera menyesuaikan cahaya
+  
+  // 2. Beri waktu yang cukup (800ms) agar sensor kamera menyesuaikan Auto-Exposure (AEC)
+  delay(800); 
 
+  // 3. DUMMY CAPTURE (BUANG FRAME LAMA)
+  camera_fb_t * dummy_fb = esp_camera_fb_get();
+  if (dummy_fb) {
+    esp_camera_fb_return(dummy_fb); // buang
+  }
+  
+  delay(50); // Jeda singkat untuk buffer
+
+  // 4. AMBIL FRAME ASLI YANG SEKARANG (REAL-TIME)
   camera_fb_t * fb = esp_camera_fb_get();
 
-  // Matikan Flash segera setelah capture
+  // 5. Matikan Flash segera setelah capture selesai agar tidak boros
   digitalWrite(FLASH_GPIO_NUM, LOW);
 
   if(!fb) {
     Serial.println("Capture failed");
+    Serial2.println("RESULT|FAILED");
     return;
   }
 
@@ -148,7 +161,7 @@ void captureAndSend(String uid) {
     
     // Pastikan URL Server benar
     http.begin(String(serverUrl) + "/api/v1/attendance/face");
-    http.setTimeout(10000); // Beri waktu lebih lama untuk upload gambar
+    http.setTimeout(20000); // Beri waktu lebih lama untuk upload gambar dan inferensi wajah
 
     // Gunakan Binary Upload (Octet-Stream) agar ringan dan stabil
     http.addHeader("Content-Type", "application/octet-stream");
@@ -163,16 +176,23 @@ void captureAndSend(String uid) {
 
     if (httpCode > 0) {
       Serial.printf("Response: %d\n", httpCode);
+      if (httpCode == 200 || httpCode == 201) {
+        Serial2.println("RESULT|SUCCESS");
+      } else {
+        Serial2.println("RESULT|FAILED");
+      }
       // Jika ingin melihat balasan server:
       // String payload = http.getString();
       // Serial.println(payload);
     } else {
       Serial.printf("Error: %s\n", http.errorToString(httpCode).c_str());
+      Serial2.println("RESULT|FAILED");
     }
 
     http.end();
   } else {
     Serial.println("WiFi not connected, cannot send");
+    Serial2.println("RESULT|FAILED");
   }
 
   esp_camera_fb_return(fb);
@@ -182,7 +202,7 @@ void captureAndSend(String uid) {
 // ================= SETUP =================
 void setup() {
   Serial.begin(115200);
-  Serial2.begin(9600, SERIAL_8N1, RX2_PIN, -1);
+  Serial2.begin(9600, SERIAL_8N1, RX2_PIN, TX2_PIN);
 
   pinMode(FLASH_GPIO_NUM, OUTPUT);
   digitalWrite(FLASH_GPIO_NUM, LOW);

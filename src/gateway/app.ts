@@ -54,6 +54,7 @@ export const createGatewayApp = () => {
   app.post("/api/v1/devices/heartbeat", asyncHandler(deviceController.heartbeat.bind(deviceController)));
   app.get("/api/v1/devices", authenticate, asyncHandler(deviceController.list.bind(deviceController)));
 
+  app.post("/api/v1/attendance/check-rfid", asyncHandler(attendanceController.checkRfid.bind(attendanceController)));
   app.post("/api/v1/attendance/rfid", asyncHandler(attendanceController.processRfid.bind(attendanceController)));
   app.post(
     "/api/v1/attendance/face",

@@ -20,32 +20,51 @@ export const setupRealtime = (httpServer: HttpServer) => {
     });
   });
 
+  // Listen to local realtimeEvents and propagate to Socket.io
+  // This is needed for non-gRPC services (like checkRfid) to emit to frontend
+  realtimeEvents.subscribe((event) => {
+    io.emit("event", event);
+    if (event.type === "device.rfid.scanned") {
+      io.emit("rfid:new", { rfid: event.payload.uid });
+    }
+  });
+
   // Watch events from gRPC server and propagate to Socket.io and local EventEmitter (for SSE)
   const watchGrpcEvents = () => {
-    const stream = grpcClients.attendance.WatchEvents({});
+    const deadline = Date.now() + 10000;
 
-    stream.on("data", (data: any) => {
-      const event = {
-        channel: data.channel,
-        type: data.type,
-        payload: data.payloadJson ? JSON.parse(data.payloadJson) : {}
-      };
+    grpcClients.attendance.waitForReady(deadline, (err) => {
+      if (err) {
+        logger.warn({ err }, "gRPC channel not ready, reconnecting in 5s...");
+        setTimeout(watchGrpcEvents, 5000);
+        return;
+      }
 
-      // Propagate locally (for SSE)
-      realtimeEvents.publish(event as any);
+      const stream = grpcClients.attendance.WatchEvents({});
 
-      // Propagate to Socket.io
-      io.emit("event", event);
-    });
+      stream.on("data", (data: any) => {
+        const event = {
+          channel: data.channel,
+          type: data.type,
+          payload: data.payloadJson ? JSON.parse(data.payloadJson) : {}
+        };
 
-    stream.on("error", (error: any) => {
-      logger.error({ error }, "gRPC WatchEvents stream error, reconnecting in 5s...");
-      setTimeout(watchGrpcEvents, 5000);
-    });
+        // Propagate locally (for SSE)
+        realtimeEvents.publish(event as any);
 
-    stream.on("end", () => {
-      logger.warn("gRPC WatchEvents stream ended, reconnecting in 5s...");
-      setTimeout(watchGrpcEvents, 5000);
+        // Propagate to Socket.io
+        // io.emit("event", event); // Handled by realtimeEvents.subscribe above
+      });
+
+      stream.on("error", (error: any) => {
+        logger.error({ error }, "gRPC WatchEvents stream error, reconnecting in 5s...");
+        setTimeout(watchGrpcEvents, 5000);
+      });
+
+      stream.on("end", () => {
+        logger.warn("gRPC WatchEvents stream ended, reconnecting in 5s...");
+        setTimeout(watchGrpcEvents, 5000);
+      });
     });
   };
 

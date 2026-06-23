@@ -25,7 +25,7 @@ const start = async () => {
 
   await new Promise<void>((resolve, reject) => {
     server.bindAsync(
-      `0.0.0.0:${env.GRPC_PORT}`,
+      `localhost:${env.GRPC_PORT}`,
       grpc.ServerCredentials.createInsecure(),
       (error) => {
         if (error) {
@@ -33,12 +33,12 @@ const start = async () => {
           return;
         }
 
+        server.start();
         resolve();
       }
     );
   });
 
-  server.start();
   logger.info(`gRPC server listening on port ${env.GRPC_PORT}`);
 };
 

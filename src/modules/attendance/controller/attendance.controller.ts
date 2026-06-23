@@ -9,17 +9,90 @@ import {
 import { grpcClients, promisifyGrpc } from "../../../shared/grpc/grpc-client";
 import { persistBase64Image, upload } from "../../../shared/utils/file-storage";
 import { PdfGenerator } from "../../../shared/utils/pdf-generator";
+import { realtimeEvents } from "../../../shared/realtime/realtime-events";
 
 export class AttendanceController {
-  async processRfid(req: Request, res: Response): Promise<void> {
-    const payload = rfidEventSchema.parse(req.body);
-    const response = await promisifyGrpc<{ message: string; correlationId: string }>(
-      grpcClients.attendance,
-      "ProcessRfidEvent",
-      payload
-    );
+  async checkRfid(req: Request, res: Response): Promise<void> {
+    try {
+      const payload = rfidEventSchema.parse(req.body);
+      
+      // Call gRPC layer to check RFID
+      const response = await promisifyGrpc<{ registered: boolean; employeeId: string; employeeName: string }>(
+        grpcClients.attendance,
+        "CheckRfid",
+        { uid: payload.uid }
+      );
 
-    res.status(StatusCodes.ACCEPTED).json(response);
+      if (!response.registered) {
+        res.status(StatusCodes.OK).json({
+          success: false,
+          registered: false,
+          message: "RFID_NOT_REGISTERED"
+        });
+        return;
+      }
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        registered: true,
+        employeeId: response.employeeId,
+        employeeName: response.employeeName
+      });
+    } catch (error: any) {
+      console.error("[GATEWAY] FATAL ERROR in checkRfid:", error);
+      res.status(error.statusCode || 500).json({
+        message: error.message || "Internal server error"
+      });
+    }
+  }
+  async processRfid(req: Request, res: Response): Promise<void> {
+    try {
+      const payload = rfidEventSchema.parse(req.body);
+      const response = await promisifyGrpc<{ message: string; correlationId: string }>(
+        grpcClients.attendance,
+        "ProcessRfidEvent",
+        payload
+      );
+
+      console.log("[GATEWAY] gRPC RFID Enqueued:", response.correlationId);
+
+      // --- WAIT FOR VERIFICATION RESULT ---
+      const verificationStatus = await new Promise<string | undefined>((resolve) => {
+        const timeout = setTimeout(() => {
+          unsubscribe();
+          resolve(undefined); // Timeout
+        }, 20000); // Wait up to 20 seconds for verification
+
+        const unsubscribe = realtimeEvents.subscribe((event) => {
+          if (event.channel === "attendance" && event.payload.correlationId === response.correlationId) {
+            if (event.type === "attendance.verification.completed") {
+              clearTimeout(timeout);
+              unsubscribe();
+              resolve(event.payload.status);
+            } else if (event.type === "attendance.verification.failed") {
+              clearTimeout(timeout);
+              unsubscribe();
+              resolve("INVALID");
+            }
+          }
+        });
+      });
+
+      if (verificationStatus === "VALID") {
+        res.status(StatusCodes.OK).json({ ...response, status: "VALID" });
+      } else if (verificationStatus === "INVALID") {
+        res.status(StatusCodes.BAD_REQUEST).json({ ...response, status: "INVALID" });
+      } else {
+        // Fallback jika timeout
+        res.status(StatusCodes.REQUEST_TIMEOUT).json({ ...response, status: "TIMEOUT" });
+      }
+    } catch (error: any) {
+      console.error("[GATEWAY] FATAL ERROR:", error);
+      res.status(error.statusCode || 500).json({
+        message: error.message || "Internal server error",
+        stack: error.stack
+      });
+    }
   }
 
   async processFace(req: Request, res: Response): Promise<void> {
@@ -91,8 +164,40 @@ export class AttendanceController {
         }
       );
 
-      console.log("[GATEWAY] gRPC Success:", response.correlationId);
-      res.status(StatusCodes.ACCEPTED).json(response);
+      console.log("[GATEWAY] gRPC Enqueued:", response.correlationId);
+
+      // --- WAIT FOR VERIFICATION RESULT ---
+      const verificationStatus = await new Promise<string | undefined>((resolve) => {
+        const timeout = setTimeout(() => {
+          unsubscribe();
+          resolve(undefined); // Timeout
+        }, 15000); // Wait up to 15 seconds for verification
+
+        const unsubscribe = realtimeEvents.subscribe((event) => {
+          if (event.channel === "attendance" && event.payload.correlationId === response.correlationId) {
+            if (event.type === "attendance.verification.completed") {
+              clearTimeout(timeout);
+              unsubscribe();
+              resolve(event.payload.status);
+            } else if (event.type === "attendance.verification.failed") {
+              clearTimeout(timeout);
+              unsubscribe();
+              resolve("INVALID");
+            }
+          }
+        });
+      });
+
+      if (verificationStatus === "VALID") {
+        res.status(StatusCodes.OK).json({ ...response, status: "VALID" });
+      } else if (verificationStatus === "INVALID") {
+        // Return 400 or 401? The ESP32-CAM checks for httpCode == 200.
+        // If INVALID, returning 400 will make ESP32-CAM print FAILED.
+        res.status(StatusCodes.BAD_REQUEST).json({ ...response, status: "INVALID" });
+      } else {
+        // Fallback if timeout
+        res.status(StatusCodes.ACCEPTED).json(response);
+      }
     } catch (error: any) {
       console.error("[GATEWAY] FATAL ERROR:", error);
       res.status(error.statusCode || 500).json({

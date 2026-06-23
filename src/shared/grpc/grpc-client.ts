@@ -4,7 +4,7 @@ import { env } from "../../config/env";
 import { AppError } from "../errors/app-error";
 import { platformProto } from "./proto";
 
-const address = `127.0.0.1:${env.GRPC_PORT}`;
+const address = `localhost:${env.GRPC_PORT}`;
 
 export const grpcClients = {
   auth: new platformProto.AuthService(address, grpc.credentials.createInsecure()),

@@ -5,6 +5,8 @@ import { employeeService } from "../services/employee.service";
 import { useAttendanceStore } from "../state/attendance-store";
 import { resolveCaptureUrl } from "../utils/image";
 import type { Employee } from "../types/domain";
+import { io } from "socket.io-client";
+import { apiBaseUrl } from "../utils/api-base";
 
 export const EmployeesPage = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -183,15 +185,16 @@ const EmployeeForm = ({
     position: employee?.position || "",
     rfidUid: employee?.rfidUid || ""
   });
-  
-  const events = useAttendanceStore((state) => state.events);
-  
+  // Custom requirement: Listen to rfid:new directly
   useEffect(() => {
-    const latestEvent = events[0];
-    if (latestEvent && latestEvent.type === "device.rfid.scanned" && latestEvent.payload?.uid) {
-      setFormData((prev) => ({ ...prev, rfidUid: latestEvent.payload.uid as string }));
-    }
-  }, [events]);
+    const socket = io(apiBaseUrl, { transports: ["websocket"] });
+    socket.on("rfid:new", (data) => {
+      setFormData((prev) => ({ ...prev, rfidUid: data.rfid }));
+    });
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
 
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [capturedImage, setCapturedImage] = useState<string | null>(
@@ -326,7 +329,14 @@ const EmployeeForm = ({
                 />
               </label>
               <label className="block">
-                <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">RFID UID</span>
+                <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">
+                  RFID UID
+                  {!formData.rfidUid && !isEdit && (
+                    <span className="ml-2 text-[10px] text-blue-500 font-normal normal-case animate-pulse inline-flex items-center gap-1">
+                      (Waiting for RFID Scan...)
+                    </span>
+                  )}
+                </span>
                 <input
                   required
                   type="text"

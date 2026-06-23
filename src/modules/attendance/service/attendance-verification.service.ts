@@ -28,15 +28,6 @@ export class AttendanceVerificationService {
 
     const employee = await this.employeeRepository.findByRfidUid(session.rfidUid);
     if (!employee) {
-      await this.attendanceRepository.saveAttendanceRecord({
-        sessionId: session.id,
-        rfidUid: session.rfidUid,
-        status: "INVALID",
-        reason: "RFID UID is not registered",
-        imagePath: session.faceImagePath,
-        rfidDeviceCode: session.rfidDeviceCode,
-        faceDeviceCode: session.faceDeviceCode
-      });
       await this.attendanceRepository.completeSession({
         sessionId: session.id,
         reason: "RFID UID is not registered"
@@ -46,23 +37,14 @@ export class AttendanceVerificationService {
         type: "attendance.verification.completed",
         payload: {
           sessionId: session.id,
-          correlationId: session.correlationId
+          correlationId: session.correlationId,
+          status: "INVALID"
         }
       });
       return;
     }
 
     if (!employee.faceDescriptor?.length) {
-      await this.attendanceRepository.saveAttendanceRecord({
-        sessionId: session.id,
-        employeeId: employee.id,
-        rfidUid: session.rfidUid,
-        status: "INVALID",
-        reason: "Employee face descriptor is not registered",
-        imagePath: session.faceImagePath,
-        rfidDeviceCode: session.rfidDeviceCode,
-        faceDeviceCode: session.faceDeviceCode
-      });
       await this.attendanceRepository.completeSession({
         sessionId: session.id,
         reason: "Employee face descriptor is not registered"
@@ -72,7 +54,8 @@ export class AttendanceVerificationService {
         type: "attendance.verification.completed",
         payload: {
           sessionId: session.id,
-          correlationId: session.correlationId
+          correlationId: session.correlationId,
+          status: "INVALID"
         }
       });
       return;
@@ -120,22 +103,24 @@ export class AttendanceVerificationService {
       }
     }
 
-    await this.attendanceRepository.saveAttendanceRecord({
-      sessionId: session.id,
-      employeeId: employee.id,
-      rfidUid: session.rfidUid,
-      status,
-      punctuality,
-      category,
-      confidence: verification.confidence,
-      reason,
-      imagePath: session.faceImagePath,
-      rfidDeviceCode: session.rfidDeviceCode,
-      faceDeviceCode: session.faceDeviceCode,
-      rawPayload: {
-        distance: verification.distance
-      }
-    });
+    if (status === "VALID") {
+      await this.attendanceRepository.saveAttendanceRecord({
+        sessionId: session.id,
+        employeeId: employee.id,
+        rfidUid: session.rfidUid,
+        status,
+        punctuality,
+        category,
+        confidence: verification.confidence,
+        reason,
+        imagePath: session.faceImagePath,
+        rfidDeviceCode: session.rfidDeviceCode,
+        faceDeviceCode: session.faceDeviceCode,
+        rawPayload: {
+          distance: verification.distance
+        }
+      });
+    }
 
     await this.attendanceRepository.completeSession({
       sessionId: session.id,
@@ -146,7 +131,8 @@ export class AttendanceVerificationService {
       type: "attendance.verification.completed",
       payload: {
         sessionId: session.id,
-        correlationId: session.correlationId
+        correlationId: session.correlationId,
+        status: status
       }
     });
   }
