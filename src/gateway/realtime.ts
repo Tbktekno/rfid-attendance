@@ -33,7 +33,7 @@ export const setupRealtime = (httpServer: HttpServer) => {
   const watchGrpcEvents = () => {
     const deadline = Date.now() + 10000;
 
-    grpcClients.attendance.waitForReady(deadline, (err) => {
+    grpcClients.attendance.waitForReady(deadline, (err:any) => {
       if (err) {
         logger.warn({ err }, "gRPC channel not ready, reconnecting in 5s...");
         setTimeout(watchGrpcEvents, 5000);

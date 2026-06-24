@@ -2,14 +2,8 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
-
-// ================= CONFIG =================
-const char* ssid = "Ikannn";
-const char* password = "11122233344556";
-const char* serverUrl = "http://10.16.199.114:3000";
-
-const char* deviceCode = "ESP32CAM-MASTER-01";
-const char* pairingKey = "ROOM-1";
+#include <LittleFS.h>
+#include <ESPmDNS.h>
 
 // ================= CAMERA PIN =================
 #define PWDN_GPIO_NUM     32
@@ -33,30 +27,136 @@ const char* pairingKey = "ROOM-1";
 
 // Serial dari ESP8266
 #define RX2_PIN 13
-#define TX2_PIN 12 // Pin TX untuk mengirim data balik ke ESP8266
+#define TX2_PIN 12 
 
+// Config Structs
+struct WiFiNetwork {
+  String ssid;
+  String password;
+};
+#define MAX_WIFI 2
+WiFiNetwork wifiNetworks[MAX_WIFI];
+
+String serverHostname = "attendtrack";
+int serverPort = 3000;
+String deviceCode = "ESP32CAM-MASTER-01";
+String pairingKey = "ROOM-1";
+
+String resolvedServerUrl = "";
+bool waitingForConfig = false;
 unsigned long lastHeartbeat = 0;
 
-// ================= WIFI CONNECT =================
-void connectWiFi() {
-  WiFi.begin(ssid, password);
-  Serial.print("Connecting WiFi");
-
-  int retry = 0;
-  while (WiFi.status() != WL_CONNECTED && retry < 20) {
-    delay(500);
-    Serial.print(".");
-    retry++;
+void loadConfig() {
+  if (!LittleFS.begin(true)) {
+    Serial.println("LittleFS Mount Failed");
+    return;
   }
-
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("\nWiFi Connected!");
-  } else {
-    Serial.println("\nWiFi Failed!");
+  
+  if (!LittleFS.exists("/config.json")) {
+    Serial.println("Config file not found, using defaults");
+    return;
   }
+  
+  File file = LittleFS.open("/config.json", "r");
+  StaticJsonDocument<1024> doc;
+  DeserializationError error = deserializeJson(doc, file);
+  if (!error) {
+    for (int i = 0; i < MAX_WIFI; i++) {
+      wifiNetworks[i].ssid = doc["wifi"][i]["ssid"] | "";
+      wifiNetworks[i].password = doc["wifi"][i]["password"] | "";
+    }
+    serverHostname = doc["hostname"] | "attendtrack";
+    serverPort = doc["port"] | 3000;
+    
+    // Khusus untuk CAM, biarkan device code tetap CAM agar dibedakan dengan ESP8266 di backend
+    // Tapi kita bisa mengambil pairing key dari ESP8266
+    String receivedCode = doc["code"] | "ESP32CAM-MASTER-01";
+    // Jika code yang diterima dari ESP8266 adalah ESP8266-MASTER-01, kita ubah jadi ESP32CAM
+    if (receivedCode.indexOf("ESP8266") != -1) {
+      receivedCode.replace("ESP8266", "ESP32CAM");
+    }
+    deviceCode = receivedCode;
+    pairingKey = doc["key"] | "ROOM-1";
+    Serial.println("Config loaded");
+  }
+  file.close();
 }
 
-// ================= CAMERA INIT =================
+void saveConfigFromJSON(String jsonStr) {
+  StaticJsonDocument<1024> doc;
+  DeserializationError error = deserializeJson(doc, jsonStr);
+  
+  if (error) {
+    Serial.println("Failed to parse config JSON from ESP8266");
+    return;
+  }
+
+  // Save raw json to file
+  File file = LittleFS.open("/config.json", "w");
+  serializeJson(doc, file);
+  file.close();
+  
+  Serial.println("New config saved from ESP8266! Rebooting...");
+  delay(1000);
+  ESP.restart();
+}
+
+bool connectWiFi() {
+  WiFi.mode(WIFI_STA);
+  for (int i = 0; i < MAX_WIFI; i++) {
+    if (wifiNetworks[i].ssid.length() > 0) {
+      Serial.print("Connecting to ");
+      Serial.println(wifiNetworks[i].ssid);
+      
+      WiFi.begin(wifiNetworks[i].ssid.c_str(), wifiNetworks[i].password.c_str());
+      int retry = 0;
+      bool flashState = false;
+      while (WiFi.status() != WL_CONNECTED && retry < 20) {
+        // Blink saat koneksi WiFi saja, BUKAN saat mode config/idle
+        flashState = !flashState;
+        digitalWrite(FLASH_GPIO_NUM, flashState ? HIGH : LOW);
+        delay(500);
+        Serial.print(".");
+        retry++;
+      }
+      digitalWrite(FLASH_GPIO_NUM, LOW); // turn off
+      if (WiFi.status() == WL_CONNECTED) {
+        Serial.println("\nWiFi Connected!");
+        return true;
+      }
+    }
+  }
+  Serial.println("\nAll WiFi failed!");
+  return false;
+}
+
+void resolveBackend() {
+  if (!MDNS.begin("attendtrack-esp32cam")) {
+    Serial.println("Error setting up MDNS!");
+  }
+  
+  Serial.println("Searching for _attendtrack._tcp service...");
+  
+  int attempts = 0;
+  while (attempts < 5) {
+    int n = MDNS.queryService("attendtrack", "tcp");
+    if (n > 0) {
+      resolvedServerUrl = "http://" + MDNS.IP(0).toString() + ":" + String(MDNS.port(0));
+      Serial.println("Server found: " + resolvedServerUrl);
+      
+      // Solid flash for 2 seconds to indicate readiness
+      digitalWrite(FLASH_GPIO_NUM, HIGH);
+      delay(2000);
+      digitalWrite(FLASH_GPIO_NUM, LOW);
+      return;
+    }
+    delay(1000);
+    attempts++;
+    Serial.print(".");
+  }
+  Serial.println("Server not found via mDNS");
+}
+
 void initCamera() {
   camera_config_t config;
 
@@ -86,13 +186,12 @@ void initCamera() {
   config.xclk_freq_hz = 20000000;
   config.pixel_format = PIXFORMAT_JPEG;
 
-  // 🔥 FIX: logika dibalik dari kode kamu
   if(psramFound()){
-    config.frame_size = FRAMESIZE_SVGA; // besar kalau ada PSRAM
+    config.frame_size = FRAMESIZE_SVGA;
     config.jpeg_quality = 10;
     config.fb_count = 2;
   } else {
-    config.frame_size = FRAMESIZE_VGA;  // kecil kalau tidak ada
+    config.frame_size = FRAMESIZE_VGA;
     config.jpeg_quality = 12;
     config.fb_count = 1;
   }
@@ -100,18 +199,17 @@ void initCamera() {
   esp_err_t err = esp_camera_init(&config);
   if (err != ESP_OK) {
     Serial.println("Camera init failed");
+    delay(3000);
     ESP.restart();
   }
 }
 
-// ================= HEARTBEAT =================
 void sendHeartbeat() {
-  if (WiFi.status() != WL_CONNECTED) return;
+  if (WiFi.status() != WL_CONNECTED || resolvedServerUrl == "") return;
 
   HTTPClient http;
-  http.begin(String(serverUrl) + "/api/v1/devices/heartbeat");
+  http.begin(resolvedServerUrl + "/api/v1/devices/heartbeat");
   http.setTimeout(3000);
-
   http.addHeader("Content-Type", "application/json");
 
   StaticJsonDocument<200> doc;
@@ -122,32 +220,26 @@ void sendHeartbeat() {
   serializeJson(doc, payload);
 
   int code = http.POST(payload);
-
   Serial.println("Heartbeat: " + String(code));
-
   http.end();
 }
 
-// ================= CAPTURE & SEND =================
 void captureAndSend(String uid) {
-  // 1. Nyalakan Flash sebagai indikator dan penerang
   digitalWrite(FLASH_GPIO_NUM, HIGH);
-  
-  // 2. Beri waktu yang cukup (800ms) agar sensor kamera menyesuaikan Auto-Exposure (AEC)
   delay(800); 
 
-  // 3. DUMMY CAPTURE (BUANG FRAME LAMA)
+  // Buang frame lama yang ada di buffer (karena fb_count = 2)
   camera_fb_t * dummy_fb = esp_camera_fb_get();
-  if (dummy_fb) {
-    esp_camera_fb_return(dummy_fb); // buang
-  }
+  if (dummy_fb) esp_camera_fb_return(dummy_fb);
   
-  delay(50); // Jeda singkat untuk buffer
-
-  // 4. AMBIL FRAME ASLI YANG SEKARANG (REAL-TIME)
+  // Buang frame kedua
+  dummy_fb = esp_camera_fb_get();
+  if (dummy_fb) esp_camera_fb_return(dummy_fb);
+  
+  delay(50); 
+  // Ambil frame terbaru yang benar-benar fresh
   camera_fb_t * fb = esp_camera_fb_get();
 
-  // 5. Matikan Flash segera setelah capture selesai agar tidak boros
   digitalWrite(FLASH_GPIO_NUM, LOW);
 
   if(!fb) {
@@ -156,22 +248,17 @@ void captureAndSend(String uid) {
     return;
   }
 
-  if (WiFi.status() == WL_CONNECTED) {
+  if (WiFi.status() == WL_CONNECTED && resolvedServerUrl != "") {
     HTTPClient http;
-    
-    // Pastikan URL Server benar
-    http.begin(String(serverUrl) + "/api/v1/attendance/face");
-    http.setTimeout(20000); // Beri waktu lebih lama untuk upload gambar dan inferensi wajah
+    http.begin(resolvedServerUrl + "/api/v1/attendance/face");
+    http.setTimeout(20000); 
 
-    // Gunakan Binary Upload (Octet-Stream) agar ringan dan stabil
     http.addHeader("Content-Type", "application/octet-stream");
     http.addHeader("X-UID", uid);
     http.addHeader("X-Device-Code", deviceCode);
     http.addHeader("X-Pairing-Key", pairingKey);
 
-    Serial.println("Sending binary image for UID: " + uid);
-    
-    // Ini adalah fungsi standar yang didukung ESP32 Core 2.0.17
+    Serial.println("Sending image for UID: " + uid);
     int httpCode = http.POST(fb->buf, fb->len);
 
     if (httpCode > 0) {
@@ -181,59 +268,76 @@ void captureAndSend(String uid) {
       } else {
         Serial2.println("RESULT|FAILED");
       }
-      // Jika ingin melihat balasan server:
-      // String payload = http.getString();
-      // Serial.println(payload);
     } else {
       Serial.printf("Error: %s\n", http.errorToString(httpCode).c_str());
       Serial2.println("RESULT|FAILED");
     }
-
     http.end();
   } else {
-    Serial.println("WiFi not connected, cannot send");
+    Serial.println("WiFi not connected or Server not resolved");
     Serial2.println("RESULT|FAILED");
   }
 
   esp_camera_fb_return(fb);
 }
 
-
-// ================= SETUP =================
 void setup() {
   Serial.begin(115200);
   Serial2.begin(9600, SERIAL_8N1, RX2_PIN, TX2_PIN);
 
   pinMode(FLASH_GPIO_NUM, OUTPUT);
+  // Pastikan flash mati
   digitalWrite(FLASH_GPIO_NUM, LOW);
 
   initCamera();
-  connectWiFi();
+  loadConfig();
+  
+  bool hasWifi = false;
+  for(int i=0; i<MAX_WIFI; i++) if(wifiNetworks[i].ssid.length() > 0) hasWifi = true;
+  
+  if (!hasWifi || !connectWiFi()) {
+    // Mode standby, menunggu kiriman config dari ESP8266 via Serial
+    Serial.println("No WiFi or connection failed. Waiting for config from ESP8266...");
+    waitingForConfig = true;
+  } else {
+    resolveBackend();
+  }
 }
 
-// ================= LOOP =================
 void loop() {
-  // Heartbeat tiap 30 detik
+  // Cek Serial dari ESP8266
+  if (Serial2.available()) {
+    String msg = Serial2.readStringUntil('\n');
+    msg.trim();
+
+    if (msg.startsWith("SYNC_JSON|")) {
+      String jsonStr = msg.substring(10);
+      saveConfigFromJSON(jsonStr);
+    }
+    else if (msg.startsWith("CAPTURE|") && !waitingForConfig) {
+      String uid = msg.substring(8);
+      Serial.println("CMD: CAPTURE");
+      captureAndSend(uid);
+    }
+  }
+
+  if (waitingForConfig) {
+    // Jangan lakukan apa-apa, tunggu sampai config masuk via Serial
+    return;
+  }
+
   if (millis() - lastHeartbeat > 30000) {
     sendHeartbeat();
     lastHeartbeat = millis();
   }
 
-  // Reconnect WiFi jika putus
+  // Reconnect logic
   if (WiFi.status() != WL_CONNECTED) {
-    connectWiFi();
-  }
-
-  // Baca serial dari ESP8266
-  if (Serial2.available()) {
-    String msg = Serial2.readStringUntil('\n');
-    msg.trim();
-
-    if (msg.startsWith("CAPTURE|")) {
-      String uid = msg.substring(8);
-
-      Serial.println("CMD: CAPTURE");
-      captureAndSend(uid);
+    if(!connectWiFi()) {
+       waitingForConfig = true;
+       Serial.println("WiFi lost and reconnect failed. Waiting for new config...");
+    } else {
+       resolveBackend();
     }
   }
 }
