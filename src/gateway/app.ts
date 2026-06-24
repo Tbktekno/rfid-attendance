@@ -8,6 +8,7 @@ import { logger } from "../shared/logger";
 import { errorHandler } from "../shared/middleware/error-handler";
 import { asyncHandler } from "../shared/middleware/async-handler";
 import { authenticate } from "../shared/middleware/authenticate";
+import { authorize } from "../shared/middleware/authorize";
 import { upload } from "../shared/utils/file-storage";
 import { AuthController } from "../modules/auth/controller/auth.controller";
 import { EmployeeController } from "../modules/employee/controller/employee.controller";
@@ -107,6 +108,7 @@ export const createGatewayApp = () => {
 
   app.get("/api/v1/settings", authenticate, asyncHandler(settingsController.getSettings.bind(settingsController)));
   app.post("/api/v1/settings", authenticate, asyncHandler(settingsController.updateSettings.bind(settingsController)));
+  app.delete("/api/v1/settings/reset", authenticate, authorize(["ADMIN"]), asyncHandler(settingsController.resetSystem.bind(settingsController)));
 
   app.use(errorHandler);
 

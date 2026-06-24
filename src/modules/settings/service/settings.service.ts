@@ -26,4 +26,29 @@ export class SettingsService {
       await this.settingsRepository.update("exit_time", dto.exit_time);
     }
   }
+
+  async resetSystem(): Promise<void> {
+    const { sqlite } = await import("../../../shared/database/sqlite");
+    const fs = await import("node:fs/promises");
+    const path = await import("node:path");
+    
+    // DB cleanup
+    await sqlite.exec(`
+      DELETE FROM attendance_records;
+      DELETE FROM attendance_sessions;
+      DELETE FROM employees;
+      DELETE FROM devices;
+      DELETE FROM users WHERE role != 'ADMIN';
+    `);
+
+    // File cleanup
+    const facesDir = path.join(process.cwd(), 'storage/uploads/faces');
+    const attendanceDir = path.join(process.cwd(), 'storage/uploads/attendance');
+    
+    await fs.rm(facesDir, { recursive: true, force: true });
+    await fs.rm(attendanceDir, { recursive: true, force: true });
+    
+    await fs.mkdir(facesDir, { recursive: true });
+    await fs.mkdir(attendanceDir, { recursive: true });
+  }
 }

@@ -14,4 +14,8 @@ export const settingsService = {
   updateSettings: async (settings: SystemSettings): Promise<void> => {
     await http.post("/api/v1/settings", settings);
   },
+
+  resetSystem: async (): Promise<void> => {
+    await http.delete("/api/v1/settings/reset");
+  },
 };

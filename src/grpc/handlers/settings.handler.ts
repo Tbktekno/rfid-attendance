@@ -37,5 +37,20 @@ export const settingsHandlers = {
         message: error.message
       });
     }
+  },
+
+  ResetSystem: async (
+    call: grpc.ServerUnaryCall<unknown, any>,
+    callback: grpc.sendUnaryData<any>
+  ) => {
+    try {
+      await settingsService.resetSystem();
+      callback(null, { success: true, message: "System reset successfully" });
+    } catch (error: any) {
+      callback({
+        code: grpc.status.INTERNAL,
+        message: error.message
+      });
+    }
   }
 };

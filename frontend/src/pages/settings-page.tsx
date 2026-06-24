@@ -113,6 +113,36 @@ export const SettingsPage = () => {
           </form>
         )}
       </div>
+
+      <div className="max-w-xl bg-white p-6 rounded-xl border border-red-200 shadow-sm mt-6">
+        <h2 className="text-lg font-bold text-red-600 mb-2">Danger Zone</h2>
+        <p className="text-sm text-slate-600 mb-4">
+          Tindakan ini akan menghapus seluruh data presensi, sesi, perangkat, dan karyawan (beserta foto wajah). Tindakan ini bersifat permanen dan tidak dapat dibatalkan. Akun Administrator akan tetap dipertahankan.
+        </p>
+        <button
+          onClick={async () => {
+            const confirmed = window.confirm(
+              "APAKAH ANDA YAKIN?\n\nSeluruh data presensi dan karyawan akan dihapus secara permanen. Tindakan ini tidak dapat dibatalkan!"
+            );
+            if (confirmed) {
+              const doubleConfirm = window.confirm("Konfirmasi sekali lagi: Hapus semua data sekarang?");
+              if (doubleConfirm) {
+                try {
+                  await settingsService.resetSystem();
+                  alert("Sistem berhasil di-reset. Halaman akan dimuat ulang.");
+                  window.location.reload();
+                } catch (error) {
+                  console.error(error);
+                  alert("Gagal mereset sistem!");
+                }
+              }
+            }
+          }}
+          className="h-10 px-4 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors"
+        >
+          Hapus Seluruh Data
+        </button>
+      </div>
     </div>
   );
 };

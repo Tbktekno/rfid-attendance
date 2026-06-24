@@ -33,6 +33,7 @@ service AttendanceService {
 service SettingsService {
   rpc GetSettings (Empty) returns (SettingsResponse);
   rpc UpdateSettings (UpdateSettingsRequest) returns (OperationResponse);
+  rpc ResetSystem (Empty) returns (OperationResponse);
 }
 
 message Empty {}

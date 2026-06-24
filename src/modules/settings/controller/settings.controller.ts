@@ -34,4 +34,17 @@ export class SettingsController {
       res.status(500).json({ message: error.message });
     }
   }
+
+  async resetSystem(req: Request, res: Response) {
+    try {
+      const response = await promisifyGrpc<{ success: boolean; message: string }>(
+        grpcClients.settings,
+        "ResetSystem",
+        {}
+      );
+      res.json(response);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  }
 }
