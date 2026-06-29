@@ -57,7 +57,7 @@ async function main() {
     );
 
     // Create Record
-    const category = i % 2 === 0 ? "IN" : "OUT";
+    const category = i % 2 === 0 ? "ENTRY" : "EXIT";
     const punctuality = i % 3 === 0 ? "LATE" : "ON_TIME";
 
     await sqlite.run(

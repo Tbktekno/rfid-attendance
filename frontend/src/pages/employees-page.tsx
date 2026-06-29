@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Camera, Edit2, Plus, Search, Trash2, UserPlus, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { employeeService } from "../services/employee.service";
 import { useAttendanceStore } from "../state/attendance-store";
 import { resolveCaptureUrl } from "../utils/image";
+import { ModalConfirm } from "../components/common/modal-confirm";
 import type { Employee } from "../types/domain";
 import { io } from "socket.io-client";
 import { apiBaseUrl } from "../utils/api-base";
@@ -14,6 +16,7 @@ export const EmployeesPage = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const refreshAll = useAttendanceStore((state) => state.refreshAll);
 
   const fetchEmployees = async () => {
@@ -36,10 +39,11 @@ export const EmployeesPage = () => {
       e.position.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Hapus data karyawan ini?")) return;
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
     try {
-      await employeeService.delete(id);
+      await employeeService.delete(deleteTarget);
+      setDeleteTarget(null);
       fetchEmployees();
       refreshAll();
     } catch (error) {
@@ -134,7 +138,7 @@ export const EmployeesPage = () => {
                         <Edit2 className="h-4 w-4" />
                       </button>
                       <button
-                        onClick={() => handleDelete(employee.id)}
+                        onClick={() => setDeleteTarget(employee.id)}
                         className="rounded p-1.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -165,6 +169,16 @@ export const EmployeesPage = () => {
           />
         )}
       </AnimatePresence>
+
+      <ModalConfirm
+        open={deleteTarget !== null}
+        title="Hapus Karyawan?"
+        message="Apakah Anda yakin ingin menghapus data karyawan ini? Tindakan ini tidak dapat dibatalkan."
+        confirmLabel="Ya, Hapus"
+        variant="danger"
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+      />
     </div>
   );
 };
@@ -185,12 +199,34 @@ const EmployeeForm = ({
     position: employee?.position || "",
     rfidUid: employee?.rfidUid || ""
   });
-  // Custom requirement: Listen to rfid:new directly
+  const [cameraSource, setCameraSource] = useState<"webcam" | "esp32cam">("esp32cam");
+
+  // Custom requirement: Listen to rfid:new directly and registration:image
   useEffect(() => {
     const socket = io(apiBaseUrl, { transports: ["websocket"] });
     socket.on("rfid:new", (data) => {
       setFormData((prev) => ({ ...prev, rfidUid: data.rfid }));
     });
+    
+    socket.on("registration:image", async (data) => {
+      setFormData((prev) => {
+        if (prev.rfidUid === data.rfid || prev.rfidUid === "") {
+          return { ...prev, rfidUid: data.rfid };
+        }
+        return prev;
+      });
+      
+      try {
+        const res = await fetch(apiBaseUrl + data.imageUrl);
+        const blob = await res.blob();
+        const reader = new FileReader();
+        reader.onloadend = () => setCapturedImage(reader.result as string);
+        reader.readAsDataURL(blob);
+      } catch (err) {
+        console.error("Failed to load ESP32-CAM image", err);
+      }
+    });
+
     return () => {
       socket.disconnect();
     };
@@ -222,11 +258,13 @@ const EmployeeForm = ({
   };
 
   useEffect(() => {
-    if (!capturedImage) {
+    if (!capturedImage && cameraSource === "webcam") {
       startCamera();
+    } else {
+      stopCamera();
     }
     return () => stopCamera();
-  }, [capturedImage]);
+  }, [capturedImage, cameraSource]);
 
   const capture = () => {
     if (videoRef.current && canvasRef.current) {
@@ -266,7 +304,7 @@ const EmployeeForm = ({
     }
   };
 
-  return (
+  return createPortal(
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -349,24 +387,54 @@ const EmployeeForm = ({
             </div>
 
             <div className="flex flex-col items-center justify-center space-y-4 rounded-xl bg-white p-4 border border-slate-200 shadow-sm">
-              <div className="relative aspect-square w-full overflow-hidden rounded-lg bg-slate-900">
+              <div className="w-full flex items-center justify-center gap-6 mb-2">
+                <label className="flex items-center gap-2 cursor-pointer text-sm font-semibold text-slate-700">
+                  <input
+                    type="radio"
+                    name="cameraSource"
+                    checked={cameraSource === "esp32cam"}
+                    onChange={() => setCameraSource("esp32cam")}
+                    className="text-blue-600 focus:ring-blue-500 w-4 h-4"
+                  />
+                  ESP32-CAM
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer text-sm font-semibold text-slate-700">
+                  <input
+                    type="radio"
+                    name="cameraSource"
+                    checked={cameraSource === "webcam"}
+                    onChange={() => setCameraSource("webcam")}
+                    className="text-blue-600 focus:ring-blue-500 w-4 h-4"
+                  />
+                  Kamera Laptop
+                </label>
+              </div>
+
+              <div className="relative aspect-square w-full overflow-hidden rounded-lg bg-slate-900 flex items-center justify-center">
                 {capturedImage ? (
                   <img src={capturedImage} className="h-full w-full object-cover" />
-                ) : (
+                ) : cameraSource === "webcam" ? (
                   <video ref={videoRef} autoPlay playsInline className="h-full w-full object-cover" />
+                ) : (
+                  <div className="text-slate-400 flex flex-col items-center animate-pulse">
+                    <Camera className="h-8 w-8 mb-2 opacity-50" />
+                    <span className="text-xs">Menunggu ESP32-CAM...</span>
+                  </div>
                 )}
                 <canvas ref={canvasRef} width={480} height={480} className="hidden" />
               </div>
 
-              {!capturedImage || (capturedImage && capturedImage.startsWith("data:image")) ? (
-                <button
-                  type="button"
-                  onClick={capturedImage ? () => setCapturedImage(null) : capture}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-blue-700 shadow-sm"
-                >
-                  <Camera className="h-4 w-4" />
-                  {capturedImage ? "Ambil Ulang" : "Tangkap Wajah"}
-                </button>
+              {!capturedImage ? (
+                cameraSource === "webcam" ? (
+                  <button
+                    type="button"
+                    onClick={capture}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-blue-700 shadow-sm"
+                  >
+                    <Camera className="h-4 w-4" />
+                    Tangkap Wajah
+                  </button>
+                ) : null
               ) : (
                 <button
                   type="button"
@@ -398,6 +466,7 @@ const EmployeeForm = ({
           </div>
         </form>
       </motion.div>
-    </motion.div>
+    </motion.div>,
+    document.body
   );
 };

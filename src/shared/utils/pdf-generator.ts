@@ -78,10 +78,10 @@ export class PdfGenerator {
 
                 let kehadiranText = "-";
                 if (item.punctuality === "BOLOS") {
-                  kehadiranText = "Tidak Masuk";
-                } else if (item.category === "IN" || item.category === "ENTRY") {
+                  kehadiranText = "Tidak Hadir";
+                } else if (item.category === "ENTRY") {
                   kehadiranText = "Masuk";
-                } else if (item.category === "OUT" || item.category === "EXIT") {
+                } else if (item.category === "EXIT") {
                   kehadiranText = "Pulang";
                 }
 

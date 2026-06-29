@@ -27,6 +27,7 @@ service AttendanceService {
   rpc ProcessFaceEvent (ProcessFaceEventRequest) returns (AttendanceEventResponse);
   rpc GetAttendanceHistory (AttendanceHistoryRequest) returns (AttendanceHistoryResponse);
   rpc GetAttendanceSessions (AttendanceSessionsRequest) returns (AttendanceSessionsResponse);
+  rpc DeleteAttendanceSession (DeleteAttendanceSessionRequest) returns (OperationResponse);
   rpc WatchEvents (Empty) returns (stream RealtimeEventMessage);
 }
 
@@ -248,6 +249,10 @@ message AttendanceSessionMessage {
 
 message AttendanceSessionsResponse {
   repeated AttendanceSessionMessage sessions = 1;
+}
+
+message DeleteAttendanceSessionRequest {
+  string id = 1;
 }
 
 message OperationResponse {

@@ -281,6 +281,56 @@ void captureAndSend(String uid) {
   esp_camera_fb_return(fb);
 }
 
+void captureAndSendRegistration(String uid) {
+  digitalWrite(FLASH_GPIO_NUM, HIGH);
+  delay(800); 
+
+  // Buang frame lama yang ada di buffer (karena fb_count = 2)
+  camera_fb_t * dummy_fb = esp_camera_fb_get();
+  if (dummy_fb) esp_camera_fb_return(dummy_fb);
+  
+  // Buang frame kedua
+  dummy_fb = esp_camera_fb_get();
+  if (dummy_fb) esp_camera_fb_return(dummy_fb);
+  
+  delay(50); 
+  // Ambil frame terbaru yang benar-benar fresh
+  camera_fb_t * fb = esp_camera_fb_get();
+
+  digitalWrite(FLASH_GPIO_NUM, LOW);
+
+  if(!fb) {
+    Serial.println("Registration Capture failed");
+    return;
+  }
+
+  if (WiFi.status() == WL_CONNECTED && resolvedServerUrl != "") {
+    HTTPClient http;
+    http.begin(resolvedServerUrl + "/api/v1/attendance/face");
+    http.setTimeout(20000); 
+
+    http.addHeader("Content-Type", "application/octet-stream");
+    http.addHeader("X-UID", uid);
+    http.addHeader("X-Purpose", "registration"); // NEW HEADER
+    http.addHeader("X-Device-Code", deviceCode);
+    http.addHeader("X-Pairing-Key", pairingKey);
+
+    Serial.println("Sending registration image for UID: " + uid);
+    int httpCode = http.POST(fb->buf, fb->len);
+
+    if (httpCode > 0) {
+      Serial.printf("Response: %d\n", httpCode);
+    } else {
+      Serial.printf("Error: %s\n", http.errorToString(httpCode).c_str());
+    }
+    http.end();
+  } else {
+    Serial.println("WiFi not connected or Server not resolved");
+  }
+
+  esp_camera_fb_return(fb);
+}
+
 void setup() {
   Serial.begin(115200);
   Serial2.begin(9600, SERIAL_8N1, RX2_PIN, TX2_PIN);
@@ -318,6 +368,11 @@ void loop() {
       String uid = msg.substring(8);
       Serial.println("CMD: CAPTURE");
       captureAndSend(uid);
+    }
+    else if (msg.startsWith("REGISTER_CAPTURE|") && !waitingForConfig) {
+      String uid = msg.substring(17);
+      Serial.println("CMD: REGISTER_CAPTURE");
+      captureAndSendRegistration(uid);
     }
   }
 

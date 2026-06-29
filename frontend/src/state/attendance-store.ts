@@ -26,6 +26,7 @@ interface AttendanceState {
   dateFilter: string;
   monthFilter: string;
   employeeFilter: string;
+  view: "log" | "report";
   isLoading: boolean;
   isStreaming: boolean;
   refreshAll: () => Promise<void>;
@@ -100,13 +101,14 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   dateFilter: getTodayStr(),
   monthFilter: "",
   employeeFilter: "",
+  view: "log",
   isLoading: false,
   isStreaming: false,
   async refreshAll() {
     set({ isLoading: true });
 
     try {
-      const { page, pageSize, statusFilter, dateFilter, monthFilter, employeeFilter } = get();
+      const { page, pageSize, statusFilter, dateFilter, monthFilter, employeeFilter, view } = get();
       const [employees, devices, sessions, historyData] = await Promise.all([
         attendanceService.getEmployees(),
         attendanceService.getDevices(),
@@ -117,13 +119,14 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
           status: statusFilter === "ALL" ? undefined : statusFilter,
           date: dateFilter || undefined,
           month: monthFilter || undefined,
-          employeeId: employeeFilter || undefined
+          employeeId: employeeFilter || undefined,
+          view: view === "report" ? "report" : undefined
         })
       ]);
 
       set({
         employees,
-        students: employees, // Alias
+        students: employees,
         devices,
         sessions,
         history: historyData.records,
@@ -137,7 +140,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   async fetchHistory(page, limit) {
     const p = page ?? get().page;
     const l = limit ?? get().pageSize;
-    const { statusFilter, dateFilter, monthFilter, employeeFilter } = get();
+    const { statusFilter, dateFilter, monthFilter, employeeFilter, view } = get();
     
     set({ isLoading: true });
     try {
@@ -147,7 +150,8 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
         status: statusFilter === "ALL" ? undefined : statusFilter,
         date: dateFilter || undefined,
         month: monthFilter || undefined,
-        employeeId: employeeFilter || undefined
+        employeeId: employeeFilter || undefined,
+        view: view === "report" ? "report" : undefined
       });
       set({ 
         history: data.records, 
@@ -190,15 +194,19 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
     get().fetchHistory(1);
   },
   setDateFilter(value) {
-    set({ dateFilter: value, monthFilter: "", page: 1 }); // Clear month if date is set
+    set({ dateFilter: value, monthFilter: "", page: 1, view: "log" });
     get().fetchHistory(1);
   },
   setMonthFilter(value) {
-    set({ monthFilter: value, dateFilter: "", page: 1 }); // Clear date if month is set
+    const { employeeFilter } = get();
+    const view = value && employeeFilter ? "report" : "log";
+    set({ monthFilter: value, dateFilter: "", page: 1, view });
     get().fetchHistory(1);
   },
   setEmployeeFilter(value) {
-    set({ employeeFilter: value, page: 1 });
+    const { monthFilter } = get();
+    const view = value && monthFilter ? "report" : "log";
+    set({ employeeFilter: value, page: 1, view });
     get().fetchHistory(1);
   },
   summary() {

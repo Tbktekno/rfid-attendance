@@ -377,17 +377,32 @@ void loop() {
     deserializeJson(doc, responseBody);
     
     if (doc["registered"] == false) {
-      lcd.clear();
-      lcd.print("RFID TIDAK");
-      lcd.setCursor(0, 1);
-      lcd.print("TERDAFTAR");
-      beep(100); delay(100); beep(100);
-      http.end();
-      delay(3000);
-      mfrc522.PICC_HaltA();
-      mfrc522.PCD_StopCrypto1();
-      showIdle();
-      return;
+      if (doc["action"] == "REGISTER_CAPTURE") {
+        lcd.clear();
+        lcd.print("Registrasi Baru");
+        lcd.setCursor(0, 1);
+        lcd.print("Ambil Foto...");
+        linkSerial.println("REGISTER_CAPTURE|" + uid);
+        beep(100); delay(100); beep(100);
+        http.end();
+        delay(2000);
+        mfrc522.PICC_HaltA();
+        mfrc522.PCD_StopCrypto1();
+        showIdle();
+        return;
+      } else {
+        lcd.clear();
+        lcd.print("RFID TIDAK");
+        lcd.setCursor(0, 1);
+        lcd.print("TERDAFTAR");
+        beep(100); delay(100); beep(100);
+        http.end();
+        delay(3000);
+        mfrc522.PICC_HaltA();
+        mfrc522.PCD_StopCrypto1();
+        showIdle();
+        return;
+      }
     }
   } else {
     lcd.clear();
@@ -406,7 +421,7 @@ void loop() {
 
   http.begin(client, resolvedServerUrl + "/api/v1/attendance/rfid");
   http.addHeader("Content-Type", "application/json");
-  http.setTimeout(25000);
+  http.setTimeout(20000);
   
   int verifyCode = http.POST(payload);
 

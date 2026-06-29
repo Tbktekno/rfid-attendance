@@ -27,6 +27,7 @@ export class AttendanceController {
         res.status(StatusCodes.OK).json({
           success: false,
           registered: false,
+          action: "REGISTER_CAPTURE",
           message: "RFID_NOT_REGISTERED"
         });
         return;
@@ -142,6 +143,21 @@ export class AttendanceController {
       const normalizedUid = rawUid.replace(/\s+/g, "").toUpperCase();
       console.log("[GATEWAY] Normalized UID:", normalizedUid);
 
+      if (req.headers["x-purpose"] === "registration") {
+        console.log("[GATEWAY] Registration face received for UID:", normalizedUid);
+        if (imagePath) {
+          const path = require("node:path");
+          const fileName = path.basename(imagePath);
+          realtimeEvents.publish({
+            channel: "employee",
+            type: "registration.image.captured",
+            payload: { uid: normalizedUid, imageUrl: `/uploads/${fileName}` }
+          });
+        }
+        res.status(StatusCodes.OK).json({ success: true, message: "Registration image received" });
+        return;
+      }
+
       const payload = faceEventSchema.parse({
         uid: normalizedUid || undefined,
         deviceCode: (req.body?.deviceCode || req.headers["x-device-code"] || "UNKNOWN") as string,
@@ -227,6 +243,21 @@ export class AttendanceController {
     );
 
     res.status(StatusCodes.OK).json(response);
+  }
+
+  async deleteSession(req: Request, res: Response): Promise<void> {
+    try {
+      const response = await promisifyGrpc<{ success: boolean; message: string }>(
+        grpcClients.attendance,
+        "DeleteAttendanceSession",
+        { id: req.params.id }
+      );
+      res.status(StatusCodes.OK).json(response);
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({
+        message: error.message || "Internal server error"
+      });
+    }
   }
 
   async exportPdf(req: Request, res: Response): Promise<void> {

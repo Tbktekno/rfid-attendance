@@ -121,6 +121,15 @@ export const attendanceHandlers = {
       callback(toGrpcError(error));
     }
   },
+  DeleteAttendanceSession: async (call: any, callback: any) => {
+    try {
+      const { id } = call.request;
+      await attendanceService.deleteSession(id);
+      callback(null, { success: true, message: "Sesi berhasil dihapus" });
+    } catch (error) {
+      callback(toGrpcError(error));
+    }
+  },
   WatchEvents: (call: any) => {
     const listener = (event: any) => {
       call.write({

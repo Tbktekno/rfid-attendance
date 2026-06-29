@@ -1,11 +1,14 @@
 import { useState, useEffect } from "react";
 import { settingsService, SystemSettings } from "../services/settings.service";
+import { ModalConfirm } from "../components/common/modal-confirm";
 
 export const SettingsPage = () => {
   const [settings, setSettings] = useState<SystemSettings>({ entry_time: "07:30", exit_time: "14:00" });
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
 
   useEffect(() => {
     fetchSettings();
@@ -120,29 +123,34 @@ export const SettingsPage = () => {
           Tindakan ini akan menghapus seluruh data presensi, sesi, perangkat, dan karyawan (beserta foto wajah). Tindakan ini bersifat permanen dan tidak dapat dibatalkan. Akun Administrator akan tetap dipertahankan.
         </p>
         <button
-          onClick={async () => {
-            const confirmed = window.confirm(
-              "APAKAH ANDA YAKIN?\n\nSeluruh data presensi dan karyawan akan dihapus secara permanen. Tindakan ini tidak dapat dibatalkan!"
-            );
-            if (confirmed) {
-              const doubleConfirm = window.confirm("Konfirmasi sekali lagi: Hapus semua data sekarang?");
-              if (doubleConfirm) {
-                try {
-                  await settingsService.resetSystem();
-                  alert("Sistem berhasil di-reset. Halaman akan dimuat ulang.");
-                  window.location.reload();
-                } catch (error) {
-                  console.error(error);
-                  alert("Gagal mereset sistem!");
-                }
-              }
-            }
-          }}
+          onClick={() => setShowResetConfirm(true)}
           className="h-10 px-4 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors"
         >
           Hapus Seluruh Data
         </button>
       </div>
+
+      <ModalConfirm
+        open={showResetConfirm}
+        title="Hapus Seluruh Data?"
+        message="Apakah Anda yakin ingin menghapus seluruh data presensi, sesi, perangkat, dan karyawan (beserta foto wajah)? Tindakan ini bersifat permanen dan tidak dapat dibatalkan. Akun Administrator akan tetap dipertahankan."
+        confirmLabel="Ya, Hapus Semua"
+        variant="danger"
+        loading={isResetting}
+        onCancel={() => setShowResetConfirm(false)}
+        onConfirm={async () => {
+          setIsResetting(true);
+          try {
+            await settingsService.resetSystem();
+            setShowResetConfirm(false);
+            window.location.reload();
+          } catch (error) {
+            console.error(error);
+            setIsResetting(false);
+            setShowResetConfirm(false);
+          }
+        }}
+      />
     </div>
   );
 };

@@ -4,7 +4,7 @@ export interface AttendanceRecordRow {
   employee_id: string | null;
   rfid_uid: string;
   status: "VALID" | "INVALID";
-  punctuality: "ON_TIME" | "LATE" | "EARLY_EXIT" | "BOLOS" | null;
+  punctuality: "ON_TIME" | "LATE" | "EARLY_EXIT" | "BOLOS" | "OVERTIME" | null;
   category: "ENTRY" | "EXIT" | null;
   confidence: number | null;
   reason: string | null;

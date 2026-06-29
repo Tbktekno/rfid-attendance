@@ -71,6 +71,11 @@ export const createGatewayApp = () => {
     authenticate,
     asyncHandler(attendanceController.sessions.bind(attendanceController))
   );
+  app.delete(
+    "/api/v1/attendance/sessions/:id",
+    authenticate,
+    asyncHandler(attendanceController.deleteSession.bind(attendanceController))
+  );
   app.get(
     "/api/v1/attendance/export/pdf",
     authenticate,

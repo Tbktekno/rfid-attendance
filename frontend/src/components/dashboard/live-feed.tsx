@@ -86,10 +86,12 @@ export const LiveFeed = () => {
                         {record.punctuality && record.punctuality !== "ON_TIME" && (
                           <span className={`text-[10px] font-bold uppercase tracking-tight ${
                             record.punctuality === 'BOLOS' ? 'text-red-600 font-extrabold' : 
-                            record.punctuality === 'LATE' ? 'text-rose-500' : 'text-amber-500'
+                            record.punctuality === 'LATE' ? 'text-rose-500' : 
+                            record.punctuality === 'OVERTIME' ? 'text-purple-600' : 'text-amber-500'
                           }`}>
                             {record.punctuality === "BOLOS" ? "⚠ Bolos" : 
-                             record.punctuality === "LATE" ? "Terlambat" : "Pulang Awal"}
+                             record.punctuality === "LATE" ? "Terlambat" : 
+                             record.punctuality === "OVERTIME" ? "Lembur" : "Pulang Awal"}
                           </span>
                         )}
                       </div>

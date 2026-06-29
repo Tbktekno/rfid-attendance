@@ -131,6 +131,10 @@ export class AttendanceRepository {
     return row ? mapAttendanceSessionEntity(row) : null;
   }
 
+  async deleteSessionById(id: string): Promise<void> {
+    await sqlite.run("DELETE FROM attendance_sessions WHERE id = ?", [id]);
+  }
+
   async findSessionByCorrelationId(correlationId: string): Promise<AttendanceSessionEntity | null> {
     const row = this.findSessionRowByCorrelationId(correlationId);
     return row ? mapAttendanceSessionEntity(row) : null;
@@ -183,7 +187,7 @@ export class AttendanceRepository {
     imagePath?: string;
     rfidDeviceCode?: string;
     faceDeviceCode?: string;
-    punctuality?: "ON_TIME" | "LATE" | "EARLY_EXIT" | "BOLOS";
+    punctuality?: "ON_TIME" | "LATE" | "EARLY_EXIT" | "BOLOS" | "OVERTIME";
     category?: "ENTRY" | "EXIT";
     rawPayload?: Record<string, unknown>;
   }): Promise<void> {
@@ -271,7 +275,7 @@ export class AttendanceRepository {
       employeeName?: string;
       rfidUid: string;
       status: "VALID" | "INVALID";
-      punctuality?: "ON_TIME" | "LATE" | "EARLY_EXIT" | "BOLOS";
+    punctuality?: "ON_TIME" | "LATE" | "EARLY_EXIT" | "BOLOS" | "OVERTIME";
       category?: "ENTRY" | "EXIT";
       confidence?: number;
       reason?: string;

@@ -24,6 +24,14 @@ export type RealtimeEvent =
         uid: string;
         deviceCode: string;
       };
+    }
+  | {
+      channel: "employee";
+      type: "registration.image.captured";
+      payload: {
+        uid: string;
+        imageUrl: string;
+      };
     };
 
 const emitter = new EventEmitter();

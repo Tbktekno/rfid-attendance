@@ -10,6 +10,7 @@ export const attendanceService = {
     studentId?: string;
     date?: string;
     month?: string;
+    view?: "log" | "report";
   }): Promise<{ records: AttendanceRecord[]; totalRecords: number }> {
     const { data } = await http.get<{ records: AttendanceRecord[]; totalRecords: number }>("/api/v1/attendance/history", {
       params: { 
@@ -18,7 +19,8 @@ export const attendanceService = {
         status: params.status || undefined,
         employeeId: params.employeeId || params.studentId || undefined,
         date: params.date || undefined,
-        month: params.month || undefined
+        month: params.month || undefined,
+        view: params.view || undefined
       }
     });
     return data;
@@ -41,11 +43,16 @@ export const attendanceService = {
   async getStudents(): Promise<Employee[]> {
     return this.getEmployees();
   },
+  async deleteSession(id: string): Promise<void> {
+    await http.delete(`/api/v1/attendance/sessions/${id}`);
+  },
+
   async exportPdf(params: {
     status?: string;
     employeeId?: string;
     date?: string;
     month?: string;
+    view?: "log" | "report";
   }): Promise<void> {
     try {
       const response = await http.get("/api/v1/attendance/export/pdf", {

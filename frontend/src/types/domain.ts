@@ -45,7 +45,7 @@ export interface AttendanceRecord {
   employeeName: string;
   rfidUid: string;
   status: AttendanceStatus;
-  punctuality?: "ON_TIME" | "LATE" | "EARLY_EXIT" | "BOLOS";
+  punctuality?: "ON_TIME" | "LATE" | "EARLY_EXIT" | "BOLOS" | "OVERTIME";
   category?: "ENTRY" | "EXIT";
   confidence: number;
   reason: string;

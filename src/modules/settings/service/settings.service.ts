@@ -15,6 +15,8 @@ export class SettingsService {
     return {
       entry_time: result.entry_time || "07:30",
       exit_time: result.exit_time || "14:00",
+      early_exit_tolerance: result.early_exit_tolerance || "15",
+      overtime_threshold: result.overtime_threshold || "60",
     };
   }
 
@@ -24,6 +26,12 @@ export class SettingsService {
     }
     if (dto.exit_time) {
       await this.settingsRepository.update("exit_time", dto.exit_time);
+    }
+    if (dto.early_exit_tolerance) {
+      await this.settingsRepository.update("early_exit_tolerance", dto.early_exit_tolerance);
+    }
+    if (dto.overtime_threshold) {
+      await this.settingsRepository.update("overtime_threshold", dto.overtime_threshold);
     }
   }
 

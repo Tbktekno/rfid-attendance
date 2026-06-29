@@ -69,7 +69,7 @@ export class AttendanceVerificationService {
     const status = verification.isMatch ? "VALID" : "INVALID";
     let reason = verification.isMatch ? "RFID and face verified" : "Face does not match registered employee";
 
-    let punctuality: "ON_TIME" | "LATE" | "EARLY_EXIT" | "BOLOS" | undefined;
+    let punctuality: "ON_TIME" | "LATE" | "EARLY_EXIT" | "BOLOS" | "OVERTIME" | undefined;
     let category: "ENTRY" | "EXIT" | undefined;
 
     if (verification.isMatch) {
@@ -84,21 +84,30 @@ export class AttendanceVerificationService {
         punctuality = timeStr <= settings.entry_time ? "ON_TIME" : "LATE";
       } else {
         category = "EXIT";
-        
+
         const [exitH, exitM] = settings.exit_time.split(":").map(Number);
         const exitTimeDate = new Date();
         exitTimeDate.setHours(exitH, exitM, 0, 0);
-        
-        const tenMinutesBeforeExit = new Date(exitTimeDate.getTime() - 10 * 60 * 1000);
-        
-        if (now < tenMinutesBeforeExit) {
-          punctuality = "BOLOS";
-          reason = "Bolos (Pulang terlalu awal > 10 menit)";
-        } else if (now < exitTimeDate) {
-          punctuality = "EARLY_EXIT";
-          reason = "Pulang awal (dalam toleransi 10 menit)";
-        } else {
+
+        const toleranceMinutes = Number(settings.early_exit_tolerance || "15");
+        const toleranceMs = toleranceMinutes * 60 * 1000;
+        const overtimeThresholdMinutes = Number(settings.overtime_threshold || "60");
+        const overtimeMs = overtimeThresholdMinutes * 60 * 1000;
+
+        const diffMs = now.getTime() - exitTimeDate.getTime();
+
+        if (diffMs >= overtimeMs) {
+          punctuality = "OVERTIME";
+          reason = `Lembur ${Math.round(diffMs / 60000)} menit`;
+        } else if (diffMs >= 0) {
           punctuality = "ON_TIME";
+          reason = "Pulang tepat waktu";
+        } else if (Math.abs(diffMs) <= toleranceMs) {
+          punctuality = "EARLY_EXIT";
+          reason = `Pulang ${Math.round(Math.abs(diffMs) / 60000)} menit sebelum jam kerja berakhir`;
+        } else {
+          punctuality = "BOLOS";
+          reason = "Pulang terlalu awal";
         }
       }
     }

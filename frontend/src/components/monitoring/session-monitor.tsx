@@ -1,13 +1,34 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
-import { Camera, CreditCard, LogIn, LogOut, ShieldCheck } from "lucide-react";
+import { Camera, CreditCard, LogIn, LogOut, ShieldCheck, Trash2 } from "lucide-react";
 import { useAttendanceStore } from "../../state/attendance-store";
 import { resolveCaptureUrl } from "../../utils/image";
 import { formatDateTime } from "../../utils/format";
 import { StatusBadge } from "../common/status-badge";
+import { ModalConfirm } from "../common/modal-confirm";
+import { attendanceService } from "../../services/attendance.service";
 
 export const SessionMonitor = () => {
   const sessions = useAttendanceStore((state) => state.sessions);
   const employees = useAttendanceStore((state) => state.employees);
+  const refreshAll = useAttendanceStore((state) => state.refreshAll);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      await attendanceService.deleteSession(deleteTarget);
+      setDeleteTarget(null);
+      refreshAll();
+    } catch (error) {
+      console.error("Failed to delete session:", error);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <section className="space-y-4">
@@ -21,8 +42,22 @@ export const SessionMonitor = () => {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.35, delay: index * 0.04 }}
-            className="panel grid gap-5 p-5 xl:grid-cols-[240px_1fr] bg-white border border-slate-100 shadow-sm rounded-xl"
+            className="panel grid gap-5 p-5 xl:grid-cols-[240px_1fr] bg-white border border-slate-100 shadow-sm rounded-xl relative"
+            onMouseEnter={() => setHoveredId(session.id)}
+            onMouseLeave={() => setHoveredId(null)}
           >
+            <button
+              onClick={() => setDeleteTarget(session.id)}
+              className={`absolute top-3 right-3 p-2 rounded-lg transition-all z-10 ${
+                hoveredId === session.id
+                  ? "opacity-100 text-red-400 hover:text-red-600 hover:bg-red-50"
+                  : "opacity-0"
+              }`}
+              title="Hapus sesi"
+            >
+              <Trash2 className="h-5 w-5" />
+            </button>
+
             <div className="overflow-hidden rounded-lg bg-slate-100 border border-slate-200">
               {imageUrl ? (
                 <img src={imageUrl} alt={employee?.fullName ?? session.correlationId} className="h-full w-full object-cover" />
@@ -34,7 +69,7 @@ export const SessionMonitor = () => {
             </div>
 
             <div className="grid gap-5">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between lg:pr-8">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Sesi Presensi</p>
                   <h3 className="mt-1 text-lg font-bold text-slate-900">{employee?.fullName ?? "Karyawan belum dikenali"}</h3>
@@ -85,6 +120,17 @@ export const SessionMonitor = () => {
             <p className="text-sm">Menunggu sesi absensi baru...</p>
          </div>
       )}
+
+      <ModalConfirm
+        open={deleteTarget !== null}
+        title="Hapus Sesi?"
+        message="Apakah Anda yakin ingin menghapus sesi ini? Data presensi terkait juga akan dihapus secara permanen."
+        confirmLabel="Ya, Hapus"
+        variant="danger"
+        loading={isDeleting}
+        onCancel={() => { if (!isDeleting) setDeleteTarget(null); }}
+        onConfirm={handleDelete}
+      />
     </section>
   );
 };

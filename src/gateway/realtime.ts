@@ -26,6 +26,8 @@ export const setupRealtime = (httpServer: HttpServer) => {
     io.emit("event", event);
     if (event.type === "device.rfid.scanned") {
       io.emit("rfid:new", { rfid: event.payload.uid });
+    } else if (event.type === "registration.image.captured") {
+      io.emit("registration:image", { rfid: event.payload.uid, imageUrl: event.payload.imageUrl });
     }
   });
 

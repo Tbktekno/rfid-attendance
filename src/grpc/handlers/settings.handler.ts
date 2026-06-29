@@ -8,10 +8,11 @@ export const settingsHandlers = {
   ) => {
     try {
       const response = await settingsService.getSettings();
-      // Map to expected camelCase for gRPC response
       callback(null, {
         entryTime: response.entry_time,
-        exitTime: response.exit_time
+        exitTime: response.exit_time,
+        earlyExitTolerance: response.early_exit_tolerance,
+        overtimeThreshold: response.overtime_threshold
       });
     } catch (error: any) {
       callback({
@@ -22,13 +23,15 @@ export const settingsHandlers = {
   },
 
   UpdateSettings: async (
-    call: grpc.ServerUnaryCall<{ entryTime: string; exitTime: string }, any>,
+    call: grpc.ServerUnaryCall<{ entryTime: string; exitTime: string; earlyExitTolerance: string; overtimeThreshold: string }, any>,
     callback: grpc.sendUnaryData<any>
   ) => {
     try {
       await settingsService.updateSettings({
         entry_time: call.request.entryTime,
-        exit_time: call.request.exitTime
+        exit_time: call.request.exitTime,
+        early_exit_tolerance: call.request.earlyExitTolerance,
+        overtime_threshold: call.request.overtimeThreshold
       });
       callback(null, { success: true, message: "Settings updated successfully" });
     } catch (error: any) {

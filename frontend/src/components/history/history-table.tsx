@@ -5,17 +5,28 @@ import { formatDateTime } from "../../utils/format";
 import { resolveCaptureUrl } from "../../utils/image";
 import type { AttendanceRecord } from "../../types/domain";
 
-const PunctualityBadge = ({ value }: { value?: AttendanceRecord["punctuality"] }) => {
+const PunctualityBadge = ({ value, category, view }: { value?: AttendanceRecord["punctuality"]; category?: AttendanceRecord["category"]; view?: "log" | "report" }) => {
   if (!value) return null;
   
-  const config = {
+  const config: Record<string, { label: string; className: string }> = {
     ON_TIME: { label: "Tepat Waktu", className: "bg-emerald-100 text-emerald-700" },
     LATE: { label: "Terlambat", className: "bg-rose-100 text-rose-700" },
-    EARLY_EXIT: { label: "Pulang Awal", className: "bg-amber-100 text-amber-700" },
-    BOLOS: { label: "Bolos", className: "bg-red-600 text-white shadow-sm" },
+    EARLY_EXIT: { label: "Pulang Terlalu Awal", className: "bg-amber-100 text-amber-700" },
+    OVERTIME: { label: "Lembur", className: "bg-purple-100 text-purple-700" },
+    BOLOS: { label: "Tidak Hadir", className: "bg-red-100 text-red-700" },
   };
 
-  const item = config[value] || config.ON_TIME;
+  if (view === "report" && value === "BOLOS") {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold tracking-wide uppercase bg-red-600 text-white shadow-sm">
+        Bolos
+      </span>
+    );
+  }
+
+  const item = config[value];
+  if (!item) return null;
+
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold tracking-wide uppercase ${item.className}`}>
       {item.label}
@@ -32,6 +43,7 @@ export const HistoryTable = () => {
   const setPage = useAttendanceStore((state) => state.setPage);
   const setPageSize = useAttendanceStore((state) => state.setPageSize);
   const isLoading = useAttendanceStore((state) => state.isLoading);
+  const view = useAttendanceStore((state) => state.view);
 
   const totalPages = Math.ceil(totalRecords / pageSize);
   const startRange = (page - 1) * pageSize + 1;
@@ -48,9 +60,9 @@ export const HistoryTable = () => {
               <th className="px-5 py-3">Hari</th>
               <th className="px-5 py-3">Tanggal</th>
               <th className="px-5 py-3">Jam</th>
-              <th className="px-5 py-3">Kehadiran</th>
-              <th className="px-5 py-3">Ketepatan</th>
-              <th className="px-5 py-3">Catatan</th>
+              <th className="px-5 py-3">Jenis Presensi</th>
+              <th className="px-5 py-3">Status</th>
+              <th className="px-5 py-3">Keterangan</th>
             </tr>
           </thead>
           <tbody className={isLoading ? "opacity-50 pointer-events-none transition-opacity" : "transition-opacity"}>
@@ -101,24 +113,26 @@ export const HistoryTable = () => {
                   <td className="px-5 py-4 text-sm font-medium text-slate-700">{dateStr}</td>
                   <td className="px-5 py-4 text-sm font-medium text-slate-700">{timeStr}</td>
                   <td className="px-5 py-4">
-                    {record.punctuality === "BOLOS" ? (
+                    {view === "report" && record.punctuality === "BOLOS" ? (
                       <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-600 uppercase">
                         Tidak Masuk
                       </span>
-                    ) : record.category === "ENTRY" || record.category === "IN" ? (
+                    ) : record.category === "ENTRY" ? (
                       <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 uppercase">
                         <LogIn className="h-3.5 w-3.5" /> Masuk
                       </span>
-                    ) : record.category === "EXIT" || record.category === "OUT" ? (
+                    ) : record.category === "EXIT" ? (
                       <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 uppercase">
                         <LogOut className="h-3.5 w-3.5" /> Pulang
                       </span>
+                    ) : view === "log" && record.punctuality === "BOLOS" ? (
+                      <span className="text-[11px] font-bold text-slate-400 uppercase">-</span>
                     ) : (
                       <span className="text-[11px] font-bold text-slate-400 uppercase">-</span>
                     )}
                   </td>
                   <td className="px-5 py-4">
-                    <PunctualityBadge value={record.punctuality} />
+                    <PunctualityBadge value={record.punctuality} category={record.category} view={view} />
                   </td>
                   <td className="px-5 py-4 text-sm text-slate-600">{record.reason || "-"}</td>
                 </tr>
