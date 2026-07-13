@@ -128,3 +128,15 @@
 - Prevention rule: Always explicitly configure CORS with exposedHeaders when building endpoints that return file downloads (blobs/arraybuffers).
 - Affected files: src/gateway/app.ts
 - Status: fixed
+
+### [2026-07-13 11:55:00] Missing Employee Name in PDF Export for Empty Months
+
+- Context: Exporting monthly PDF report for an employee who has 0 attendances in that month.
+- Requested task: Fix 'Unknown' and '-' values in generated PDF report.
+- What was generated: Dummy 'BOLOS' records were generated but populated with empty strings for employeeName.
+- What was wrong: API Gateway passed empty strings to PdfGenerator, which fallback to "Unknown" and "-".
+- Root cause: `attendanceService.getHistory` dynamically generates monthly records using `records[0].employeeName`, which fails when records array is empty.
+- Fix applied: Modified `exportPdf` in API Gateway to fetch employee details via gRPC `EmployeeService` when `employeeId` is provided, using them as fallbacks for missing names/UIDs.
+- Prevention rule: When generating dummy/filler records dynamically, ensure external foreign keys (like Employee Name) are explicitly fetched if the base query returns 0 rows.
+- Affected files: src/modules/attendance/controller/attendance.controller.ts
+- Status: fixed

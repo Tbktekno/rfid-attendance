@@ -1,3 +1,5 @@
+import fs from "node:fs/promises";
+import path from "node:path";
 import { StatusCodes } from "http-status-codes";
 import { FaceRecognitionClient } from "../../../shared/clients/face-recognition.client";
 import { AppError } from "../../../shared/errors/app-error";
@@ -65,6 +67,14 @@ export class AttendanceVerificationService {
       imagePath: session.faceImagePath,
       referenceDescriptor: employee.faceDescriptor
     });
+
+    if (verification.croppedImageBase64) {
+      const absolutePath = path.resolve(process.cwd(), session.faceImagePath);
+      const buffer = Buffer.from(verification.croppedImageBase64, "base64");
+      await fs.writeFile(absolutePath, buffer).catch(err => {
+        console.warn("[VERIFICATION] Failed to update face image:", err);
+      });
+    }
 
     const status = verification.isMatch ? "VALID" : "INVALID";
     let reason = verification.isMatch ? "RFID and face verified" : "Face does not match registered employee";

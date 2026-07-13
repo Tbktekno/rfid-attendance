@@ -13,7 +13,7 @@ import { AttendanceRetrySchedulerService } from "../modules/attendance/service/a
 import { SettingsRepository } from "../modules/settings/repository/settings.repository";
 import { SettingsService } from "../modules/settings/service/settings.service";
 
-const faceRecognitionClient = new FaceRecognitionClient();
+export const faceRecognitionClient = new FaceRecognitionClient();
 const userRepository = new UserRepository();
 const employeeRepository = new EmployeeRepository();
 const deviceRepository = new DeviceRepository();
@@ -41,5 +41,6 @@ export const attendanceSyncService = new AttendanceSyncService(
 export const attendanceService = new AttendanceService(
   attendanceRepository,
   deviceService,
-  attendanceSyncService
+  attendanceSyncService,
+  settingsService
 );

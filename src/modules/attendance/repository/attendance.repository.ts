@@ -67,9 +67,34 @@ export class AttendanceRepository {
     capturedAt: Date;
     uid?: string;
   }): Promise<AttendanceSessionEntity> {
-    const existing = this.findSessionRowByCorrelationId(input.correlationId);
+    let existing = this.findSessionRowByCorrelationId(input.correlationId);
     const now = new Date().toISOString();
     const capturedAt = input.capturedAt.toISOString();
+
+    // FALLBACK: If session not found by correlationId (timing mismatch), 
+    // search for a PENDING session with the same rfid_uid that has no face yet.
+    // This prevents the "stuck scan" bug caused by bucket boundary crossing.
+    if (!existing && input.uid) {
+      existing = this.findSessionRowByRfidUid(input.uid);
+      if (existing) {
+        // Re-link: adopt the found session's correlationId for future matching
+        await sqlite.run(
+          `UPDATE attendance_sessions
+           SET correlation_id = ?, pairing_key = ?, face_image_path = ?, face_device_code = ?, last_event_at = ?, updated_at = ?
+           WHERE id = ?`,
+          [
+            input.correlationId,
+            input.pairingKey ?? existing.pairing_key,
+            input.imagePath,
+            input.deviceCode,
+            capturedAt,
+            now,
+            existing.id
+          ]
+        );
+        return (await this.findSessionByCorrelationId(input.correlationId)) as AttendanceSessionEntity;
+      }
+    }
 
     if (existing) {
       await sqlite.run(
@@ -397,6 +422,21 @@ export class AttendanceRepository {
        FROM attendance_sessions
        WHERE correlation_id = ?`,
       [correlationId]
+    );
+  }
+
+  /** Find the most recent PENDING session for an rfid_uid that hasn't received a face image yet (fallback for timing mismatches) */
+  private findSessionRowByRfidUid(rfidUid: string): AttendanceSessionRow | null {
+    return sqlite.get<AttendanceSessionRow>(
+      `SELECT id, correlation_id, pairing_key, rfid_uid, rfid_device_code, face_device_code, face_image_path,
+              verification_queued, verification_attempts, status, reason, started_at, last_event_at, verified_at, created_at, updated_at
+       FROM attendance_sessions
+       WHERE rfid_uid = ?
+         AND face_image_path IS NULL
+         AND status IN ('PENDING', 'READY')
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [rfidUid]
     );
   }
 }

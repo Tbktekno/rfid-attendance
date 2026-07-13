@@ -55,6 +55,8 @@ export interface AttendanceReportRecord {
   status: "VALID" | "INVALID";
   punctuality?: "ON_TIME" | "LATE" | "EARLY_EXIT" | "BOLOS" | "OVERTIME";
   category?: "ENTRY" | "EXIT";
+  entryTime?: string;
+  exitTime?: string;
   confidence?: number;
   reason?: string;
   imagePath?: string;

@@ -7,7 +7,7 @@ export type RealtimeEvent =
       payload: {
         sessionId: string;
         correlationId?: string;
-        status?: "VALID" | "INVALID";
+        status?: "VALID" | "INVALID" | "NO_FACE";
       };
     }
   | {

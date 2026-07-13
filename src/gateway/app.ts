@@ -16,11 +16,12 @@ import { DeviceController } from "../modules/device/controller/device.controller
 import { AttendanceController } from "../modules/attendance/controller/attendance.controller";
 import { AttendanceStreamController } from "../modules/attendance/controller/attendance-stream.controller";
 import { SettingsController } from "../modules/settings/controller/settings.controller";
+import { faceRecognitionClient } from "../shared/container";
 
 const authController = new AuthController();
 const employeeController = new EmployeeController();
 const deviceController = new DeviceController();
-const attendanceController = new AttendanceController();
+const attendanceController = new AttendanceController(faceRecognitionClient);
 const attendanceStreamController = new AttendanceStreamController();
 const settingsController = new SettingsController();
 

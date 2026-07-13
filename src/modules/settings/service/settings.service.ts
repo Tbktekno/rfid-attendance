@@ -17,21 +17,35 @@ export class SettingsService {
       exit_time: result.exit_time || "14:00",
       early_exit_tolerance: result.early_exit_tolerance || "15",
       overtime_threshold: result.overtime_threshold || "60",
+      working_days: result.working_days || "1,2,3,4,5",
+      holidays: result.holidays || "[]",
     };
   }
 
   async updateSettings(dto: UpdateSettingsDto): Promise<void> {
-    if (dto.entry_time) {
-      await this.settingsRepository.update("entry_time", dto.entry_time);
+    const updates: Array<{ key: string; value: string }> = [];
+    
+    if (dto.entry_time !== undefined) {
+      updates.push({ key: "entry_time", value: dto.entry_time });
     }
-    if (dto.exit_time) {
-      await this.settingsRepository.update("exit_time", dto.exit_time);
+    if (dto.exit_time !== undefined) {
+      updates.push({ key: "exit_time", value: dto.exit_time });
     }
-    if (dto.early_exit_tolerance) {
-      await this.settingsRepository.update("early_exit_tolerance", dto.early_exit_tolerance);
+    if (dto.early_exit_tolerance !== undefined) {
+      updates.push({ key: "early_exit_tolerance", value: dto.early_exit_tolerance });
     }
-    if (dto.overtime_threshold) {
-      await this.settingsRepository.update("overtime_threshold", dto.overtime_threshold);
+    if (dto.overtime_threshold !== undefined) {
+      updates.push({ key: "overtime_threshold", value: dto.overtime_threshold });
+    }
+    if (dto.working_days !== undefined) {
+      updates.push({ key: "working_days", value: dto.working_days });
+    }
+    if (dto.holidays !== undefined) {
+      updates.push({ key: "holidays", value: dto.holidays });
+    }
+
+    for (const { key, value } of updates) {
+      await this.settingsRepository.update(key, value);
     }
   }
 

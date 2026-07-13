@@ -21,6 +21,8 @@ export interface AttendanceReportData {
   status: string;
   category?: string;
   punctuality?: string;
+  entryTime?: string;
+  exitTime?: string;
 }
 
 export class PdfGenerator {
@@ -46,7 +48,7 @@ export class PdfGenerator {
         {
           table: {
             headerRows: 1,
-            widths: ["auto", "auto", "*", "auto", "auto", "auto", "auto", "auto"],
+            widths: ["auto", "auto", "*", "auto", "auto", "auto", "auto", "auto", "auto"],
             body: [
               [
                 { text: "No", style: "tableHeader" },
@@ -54,7 +56,8 @@ export class PdfGenerator {
                 { text: "Nama Karyawan", style: "tableHeader" },
                 { text: "Hari", style: "tableHeader" },
                 { text: "Tanggal", style: "tableHeader" },
-                { text: "Jam", style: "tableHeader" },
+                { text: "Jam Hadir", style: "tableHeader" },
+                { text: "Jam Pulang", style: "tableHeader" },
                 { text: "Kehadiran", style: "tableHeader" },
                 { text: "Ketepatan", style: "tableHeader" }
               ],
@@ -79,6 +82,8 @@ export class PdfGenerator {
                 let kehadiranText = "-";
                 if (item.punctuality === "BOLOS") {
                   kehadiranText = "Tidak Hadir";
+                } else if (isMonthly) {
+                  kehadiranText = "Hadir";
                 } else if (item.category === "ENTRY") {
                   kehadiranText = "Masuk";
                 } else if (item.category === "EXIT") {
@@ -86,9 +91,9 @@ export class PdfGenerator {
                 }
 
                 let kehadiranColor = "#6b7280"; // Gray default
-                if (kehadiranText === "Masuk") kehadiranColor = "#10b981"; // Emerald
+                if (kehadiranText === "Masuk" || kehadiranText === "Hadir") kehadiranColor = "#10b981"; // Emerald
                 else if (kehadiranText === "Pulang") kehadiranColor = "#3b82f6"; // Blue
-                else if (kehadiranText === "Tidak Masuk") kehadiranColor = "#ef4444"; // Red
+                else if (kehadiranText === "Tidak Masuk" || kehadiranText === "Tidak Hadir") kehadiranColor = "#ef4444"; // Red
 
                 let punctualityText = item.punctuality === "ON_TIME" ? "Tepat Waktu" : 
                                       item.punctuality === "LATE" ? "Terlambat" : 
@@ -97,13 +102,17 @@ export class PdfGenerator {
                 let punctualityColor = (item.punctuality === "LATE" || item.punctuality === "BOLOS") ? "#ef4444" : 
                                        (item.punctuality === "ON_TIME" ? "#10b981" : "#6b7280");
 
+                const jamHadirText = item.entryTime || (item.category === "ENTRY" ? timeStr : "-");
+                const jamPulangText = item.exitTime || (item.category === "EXIT" ? timeStr : "-");
+
                 return [
                   (index + 1).toString(),
                   item.rfidUid,
                   item.employeeName || "Unknown",
                   dayName,
                   dateStr,
-                  timeStr,
+                  jamHadirText,
+                  jamPulangText,
                   { text: kehadiranText, color: kehadiranColor, bold: true },
                   { text: punctualityText, color: punctualityColor }
                 ];

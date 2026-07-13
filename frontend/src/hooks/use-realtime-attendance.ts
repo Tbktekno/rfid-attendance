@@ -4,6 +4,9 @@ import { connectSocket } from "../services/realtime.service";
 import { useAttendanceStore } from "../state/attendance-store";
 import { useAuthStore } from "../state/auth-store";
 
+/** Fallback polling interval (ms) when realtime connection is unstable */
+const POLL_INTERVAL_MS = 30_000;
+
 export const useRealtimeAttendance = (): void => {
   const navigate = useNavigate();
   const token = useAuthStore((state) => state.token);
@@ -36,8 +39,14 @@ export const useRealtimeAttendance = (): void => {
       }
     });
 
+    // Fallback polling: refresh sessions periodically even if realtime events are lost
+    const pollTimer = setInterval(() => {
+      refreshAll();
+    }, POLL_INTERVAL_MS);
+
     return () => {
       socket.close();
+      clearInterval(pollTimer);
     };
   }, [pushRealtimeEvent, refreshAll, setStreaming, token]);
 };

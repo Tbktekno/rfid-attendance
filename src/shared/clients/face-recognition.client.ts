@@ -6,12 +6,19 @@ import { readFileAsBase64 } from "../utils/file-storage";
 
 interface EncodeResponse {
   descriptor: number[];
+  croppedImageBase64?: string;
 }
 
 interface VerifyResponse {
   isMatch: boolean;
   distance: number;
   confidence: number;
+  croppedImageBase64?: string;
+}
+
+interface DetectResponse {
+  hasFace: boolean;
+  displayImageBase64: string | null;
 }
 
 export class FaceRecognitionClient {
@@ -22,6 +29,13 @@ export class FaceRecognitionClient {
       baseURL: env.FACE_SERVICE_URL,
       timeout: 15000
     });
+  }
+
+  async detectFace(input: { imageBase64: string }): Promise<DetectResponse> {
+    const { data } = await this.http.post<DetectResponse>("/detect", {
+      imageBase64: input.imageBase64
+    });
+    return data;
   }
 
   async encodeFace(input: { imageBase64?: string; imagePath?: string }): Promise<number[]> {

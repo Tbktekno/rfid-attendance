@@ -218,6 +218,8 @@ message AttendanceRecordMessage {
   string createdAt = 13;
   string punctuality = 14;
   string category = 15;
+  string entryTime = 16;
+  string exitTime = 17;
 }
 
 message AttendanceHistoryResponse {
@@ -263,9 +265,17 @@ message OperationResponse {
 message SettingsResponse {
   string entry_time = 1;
   string exit_time = 2;
+  string early_exit_tolerance = 3;
+  string overtime_threshold = 4;
+  string working_days = 5;
+  string holidays = 6;
 }
 
 message UpdateSettingsRequest {
   string entry_time = 1;
   string exit_time = 2;
+  string early_exit_tolerance = 3;
+  string overtime_threshold = 4;
+  string working_days = 5;
+  string holidays = 6;
 }

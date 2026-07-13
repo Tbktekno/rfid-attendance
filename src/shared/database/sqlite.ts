@@ -220,6 +220,14 @@ export const connectSqlite = async (): Promise<void> => {
     `INSERT OR IGNORE INTO system_settings (key, value, created_at, updated_at) VALUES (?, ?, ?, ?)`,
     ['overtime_threshold', '60', now, now]
   );
+  database.run(
+    `INSERT OR IGNORE INTO system_settings (key, value, created_at, updated_at) VALUES (?, ?, ?, ?)`,
+    ['working_days', '1,2,3,4,5', now, now]
+  );
+  database.run(
+    `INSERT OR IGNORE INTO system_settings (key, value, created_at, updated_at) VALUES (?, ?, ?, ?)`,
+    ['holidays', '[]', now, now]
+  );
 
   await persist();
   logger.info({ path: env.sqlitePathAbsolute }, "Connected to SQLite");

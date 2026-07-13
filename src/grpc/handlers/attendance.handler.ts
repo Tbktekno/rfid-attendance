@@ -25,7 +25,9 @@ const mapRecord = (record: any) => ({
   verifiedAt: new Date(record.verifiedAt).toISOString(),
   createdAt: new Date(record.createdAt).toISOString(),
   punctuality: record.punctuality ?? "",
-  category: record.category ?? ""
+  category: record.category ?? "",
+  entryTime: record.entryTime ?? "",
+  exitTime: record.exitTime ?? ""
 });
 
 const mapSession = (session: any) => {

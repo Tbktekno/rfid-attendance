@@ -4,13 +4,15 @@ import { DeviceService } from "../../device/service/device.service";
 import { AttendanceHistoryDto, AttendanceReportRecord, AttendanceSessionsDto, FaceEventDto, RfidEventDto } from "../dto/attendance.dto";
 import { AttendanceRepository } from "../repository/attendance.repository";
 import { AttendanceSyncService } from "./attendance-sync.service";
+import { SettingsService } from "../../settings/service/settings.service";
 import { realtimeEvents } from "../../../shared/realtime/realtime-events";
 
 export class AttendanceService {
   constructor(
     private readonly attendanceRepository: AttendanceRepository,
     private readonly deviceService: DeviceService,
-    private readonly attendanceSyncService: AttendanceSyncService
+    private readonly attendanceSyncService: AttendanceSyncService,
+    private readonly settingsService?: SettingsService
   ) {}
 
   async enqueueRfidEvent(input: RfidEventDto) {
@@ -98,32 +100,84 @@ export class AttendanceService {
     return rawData;
   }
 
+  private isWorkingDay(day: Date, workingDayIndices: number[], holidayDateSet: Set<string>, format: Function): boolean {
+    const dayOfWeek = day.getDay(); // 0=Minggu, 1=Senin, ..., 6=Sabtu
+    const dateStr = format(day, "yyyy-MM-dd");
+    return workingDayIndices.includes(dayOfWeek) && !holidayDateSet.has(dateStr);
+  }
+
   private async buildMonthlyReport(
     records: AttendanceReportRecord[],
     input: AttendanceHistoryDto
   ): Promise<{ records: AttendanceReportRecord[]; totalRecords: number }> {
-    const { parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend, format } = require("date-fns");
+    const { parseISO, startOfMonth, endOfMonth, eachDayOfInterval, format } = require("date-fns");
     
+    // Baca pengaturan hari kerja & hari libur dari database
+    let workingDayIndices = [1, 2, 3, 4, 5]; // default Senin-Jumat
+    let holidayDateSet = new Set<string>();
+
+    if (this.settingsService) {
+      try {
+        const settings = await this.settingsService.getSettings();
+        if (settings.working_days) {
+          workingDayIndices = settings.working_days.split(",").map(Number).filter(n => !isNaN(n));
+        }
+        if (settings.holidays) {
+          const parsed = JSON.parse(settings.holidays);
+          if (Array.isArray(parsed)) {
+            holidayDateSet = new Set(parsed);
+          }
+        }
+      } catch {
+        // fallback ke default jika gagal baca settings
+      }
+    }
+
     const monthStart = startOfMonth(parseISO(input.month + "-01"));
     const monthEnd = endOfMonth(monthStart);
     const allDays = eachDayOfInterval({ start: monthStart, end: monthEnd });
-    const weekdays = allDays.filter((day: Date) => !isWeekend(day));
     
-    const recordsByDate = new Map();
+    // Filter hanya hari yang termasuk dalam working_days DAN tidak ada di holidays
+    const workDays = allDays.filter((day: Date) => this.isWorkingDay(day, workingDayIndices, holidayDateSet, format));
+    
+    const recordsByDate = new Map<string, AttendanceReportRecord[]>();
     for (const record of records) {
       const dateStr = format(record.verifiedAt, "yyyy-MM-dd");
       if (!recordsByDate.has(dateStr)) {
-         recordsByDate.set(dateStr, record);
+         recordsByDate.set(dateStr, []);
       }
+      recordsByDate.get(dateStr)!.push(record);
     }
 
     const interpolatedRecords: AttendanceReportRecord[] = [];
     const employeeName = records.length > 0 ? records[0].employeeName : "";
 
-    for (const day of weekdays) {
+    for (const day of workDays) {
       const dateStr = format(day, "yyyy-MM-dd");
       if (recordsByDate.has(dateStr)) {
-        interpolatedRecords.push(recordsByDate.get(dateStr));
+        const dayRecords = recordsByDate.get(dateStr)!;
+        // Sort by time ascending
+        dayRecords.sort((a, b) => a.verifiedAt.getTime() - b.verifiedAt.getTime());
+        
+        const first = dayRecords[0];
+        const last = dayRecords[dayRecords.length - 1];
+        
+        const entryRec = dayRecords.find(r => r.category === "ENTRY") || (first.category !== "EXIT" ? first : undefined);
+        const exitRec = dayRecords.find(r => r.category === "EXIT") || (dayRecords.length > 1 ? last : undefined);
+
+        let entryTime: string | undefined = undefined;
+        let exitTime: string | undefined = undefined;
+
+        if (entryRec) entryTime = format(entryRec.verifiedAt, "HH:mm:ss");
+        if (exitRec && exitRec !== entryRec) exitTime = format(exitRec.verifiedAt, "HH:mm:ss");
+
+        const baseRec = entryRec || first;
+
+        interpolatedRecords.push({
+          ...baseRec,
+          entryTime,
+          exitTime
+        });
       } else {
         if (day <= new Date()) {
           interpolatedRecords.push({
@@ -135,6 +189,8 @@ export class AttendanceService {
              status: "INVALID",
              punctuality: "BOLOS",
              category: undefined,
+             entryTime: "-",
+             exitTime: "-",
              confidence: 0,
              reason: "Tidak Hadir",
              verifiedAt: day,

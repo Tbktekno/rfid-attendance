@@ -3,6 +3,8 @@ export interface UpdateSettingsDto {
   exit_time: string;
   early_exit_tolerance?: string;
   overtime_threshold?: string;
+  working_days?: string;
+  holidays?: string;
 }
 
 export interface SystemSettingsResponse {
@@ -10,4 +12,6 @@ export interface SystemSettingsResponse {
   exit_time: string;
   early_exit_tolerance: string;
   overtime_threshold: string;
+  working_days: string;
+  holidays: string;
 }

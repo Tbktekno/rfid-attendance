@@ -424,9 +424,21 @@ void loop() {
   http.setTimeout(20000);
   
   int verifyCode = http.POST(payload);
+  String responseBody = http.getString();
+  String verifyStatus = "";
+  {
+    StaticJsonDocument<256> doc;
+    deserializeJson(doc, responseBody);
+    verifyStatus = doc["status"].as<String>();
+  }
 
   lcd.clear();
-  if (verifyCode == 200) {
+  if (verifyStatus == "NO_FACE") {
+    lcd.print("Tidak Ada Wajah");
+    lcd.setCursor(0, 1);
+    lcd.print("Arahkan Kamera");
+    beep(100); delay(50); beep(100);
+  } else if (verifyCode == 200) {
     lcd.print("Wajah Cocok!");
     lcd.setCursor(0, 1);
     lcd.print("Verified");
