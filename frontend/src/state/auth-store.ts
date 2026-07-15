@@ -26,7 +26,8 @@ export const useAuthStore = create<AuthState>((set) => ({
 
     try {
       const response = await authService.login(payload);
-      localStorage.setItem(storageKey, JSON.stringify(response));
+      const expiresAt = Date.now() + 60 * 60 * 1000; // 1 jam (1 hour)
+      localStorage.setItem(storageKey, JSON.stringify({ ...response, expiresAt }));
       set({
         token: response.token,
         user: response.user,
@@ -51,7 +52,14 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
 
     try {
-      const parsed = JSON.parse(raw) as { token: string; user: AuthUser };
+      const parsed = JSON.parse(raw) as { token: string; user: AuthUser; expiresAt?: number };
+      
+      if (!parsed.expiresAt || Date.now() > parsed.expiresAt) {
+        localStorage.removeItem(storageKey);
+        set({ isHydrated: true });
+        return;
+      }
+
       set({ token: parsed.token, user: parsed.user, isHydrated: true });
     } catch {
       localStorage.removeItem(storageKey);

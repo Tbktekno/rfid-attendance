@@ -17,11 +17,28 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 mp_face_detection = mp.solutions.face_detection
 _face_detector = None
 
+BLUR_THRESHOLD = 80.0
+
 def get_face_detector():
     global _face_detector
     if _face_detector is None:
         _face_detector = mp_face_detection.FaceDetection(min_detection_confidence=0.5)
     return _face_detector
+
+def preprocess_face(image_cv: np.ndarray) -> np.ndarray:
+    gray = cv2.cvtColor(image_cv, cv2.COLOR_BGR2GRAY)
+    laplacian_var = cv2.Laplacian(gray, cv2.CV_64F).var()
+    if laplacian_var < BLUR_THRESHOLD:
+        raise HTTPException(status_code=400, detail=f"Gambar terlalu buram (sharpness: {laplacian_var:.1f})")
+
+    lab = cv2.cvtColor(image_cv, cv2.COLOR_BGR2LAB)
+    l, a, b = cv2.split(lab)
+    clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
+    l_eq = clahe.apply(l)
+    eq = cv2.merge([l_eq, a, b])
+    result = cv2.cvtColor(eq, cv2.COLOR_LAB2BGR)
+
+    return result
 
 def detect_and_crop_face(image_cv: np.ndarray):
     detector = get_face_detector()
@@ -112,6 +129,7 @@ def detect_face(payload: DetectRequest):
 def encode_face(payload: EncodeRequest):
     try:
         image_cv = decode_image_to_cv(payload.imageBase64)
+        image_cv = preprocess_face(image_cv)
 
         img_with_box, cropped = detect_and_crop_face(image_cv)
         if img_with_box is None:
@@ -141,6 +159,7 @@ def encode_face(payload: EncodeRequest):
 def verify_face(payload: VerifyRequest):
     try:
         image_cv = decode_image_to_cv(payload.imageBase64)
+        image_cv = preprocess_face(image_cv)
 
         img_with_box, cropped = detect_and_crop_face(image_cv)
         if img_with_box is None:

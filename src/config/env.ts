@@ -11,7 +11,7 @@ const envSchema = z.object({
   JWT_EXPIRES_IN: z.string().default("1h"),
   SQLITE_PATH: z.string().min(1),
   FACE_SERVICE_URL: z.string().url(),
-  FACE_MATCH_THRESHOLD: z.coerce.number().default(0.45),
+  FACE_MATCH_THRESHOLD: z.coerce.number().default(0.30),
   ATTENDANCE_MATCH_WINDOW_SECONDS: z.coerce.number().default(120),
   UPLOAD_DIR: z.string().default("storage/uploads"),
   LOG_LEVEL: z.string().default("info")

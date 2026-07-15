@@ -85,11 +85,26 @@ export class AttendanceVerificationService {
     if (verification.isMatch) {
       const settings = await this.settingsService.getSettings();
       const lastRecord = await this.attendanceRepository.findTodayRecord(employee.id);
+
+      if (lastRecord?.category === "EXIT") {
+        reason = "Sudah melakukan absensi lengkap hari ini";
+        await this.attendanceRepository.completeSession({ sessionId: session.id, reason });
+        realtimeEvents.publish({
+          channel: "attendance",
+          type: "attendance.verification.completed",
+          payload: {
+            sessionId: session.id,
+            correlationId: session.correlationId,
+            status: "INVALID"
+          }
+        });
+        return;
+      }
       
       const now = new Date();
       const timeStr = now.getHours().toString().padStart(2, "0") + ":" + now.getMinutes().toString().padStart(2, "0");
 
-      if (!lastRecord || lastRecord.category === "EXIT") {
+      if (!lastRecord) {
         category = "ENTRY";
         punctuality = timeStr <= settings.entry_time ? "ON_TIME" : "LATE";
       } else {
