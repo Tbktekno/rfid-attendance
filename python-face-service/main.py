@@ -17,7 +17,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 mp_face_detection = mp.solutions.face_detection
 _face_detector = None
 
-BLUR_THRESHOLD = 80.0
+BLUR_THRESHOLD = 30.0
 
 def get_face_detector():
     global _face_detector
@@ -149,6 +149,8 @@ def encode_face(payload: EncodeRequest):
         descriptor = results[0]["embedding"]
         display_b64 = encode_cv_to_base64(img_with_box)
         return {"descriptor": descriptor, "croppedImageBase64": display_b64}
+    except HTTPException:
+        raise
     except Exception as e:
         logger_err = str(e)
         if "Face could not be detected" in logger_err:
@@ -210,6 +212,8 @@ def verify_face(payload: VerifyRequest):
             "confidence": confidence,
             "croppedImageBase64": display_b64,
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger_err = str(e)
         if "Face could not be detected" in logger_err:
