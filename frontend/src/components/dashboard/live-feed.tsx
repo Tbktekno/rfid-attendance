@@ -48,7 +48,7 @@ export const LiveFeed = () => {
               </tr>
             ) : (
               feed.map((record) => {
-                const employeeId = record.employeeId || record.studentId;
+                const employeeId = record.employeeId;
                 const employee = employees.find((s) => s.id === employeeId);
                 const captureUrl = resolveCaptureUrl(record.imagePath);
 
@@ -61,7 +61,7 @@ export const LiveFeed = () => {
                         <div className="h-9 w-9 rounded-full bg-slate-200 border border-slate-300" />
                       )}
                       <div>
-                        <p className="text-sm font-bold text-slate-900">{record.employeeName || record.studentName || employee?.fullName || "Tidak dikenali"}</p>
+                        <p className="text-sm font-bold text-slate-900">{record.employeeName || employee?.fullName || "Tidak dikenali"}</p>
                         <p className="text-[10px] text-slate-500 uppercase tracking-tighter">{employee?.position || "-"}</p>
                       </div>
                     </td>
@@ -89,7 +89,8 @@ export const LiveFeed = () => {
                             record.punctuality === 'LATE' ? 'text-rose-500' : 
                             record.punctuality === 'OVERTIME' ? 'text-purple-600' : 'text-amber-500'
                           }`}>
-                            {record.punctuality === "BOLOS" ? "⚠ Bolos" : 
+                            {record.punctuality === "BOLOS" && record.category === "EXIT" ? "⚠ Pulang Terlalu Awal" :
+                             record.punctuality === "BOLOS" ? "⚠ Tidak Hadir" : 
                              record.punctuality === "LATE" ? "Terlambat" : 
                              record.punctuality === "OVERTIME" ? "Lembur" : "Pulang Awal"}
                           </span>
@@ -107,8 +108,8 @@ export const LiveFeed = () => {
       <div className="p-4 border-t border-slate-100 flex items-center justify-between">
          <p className="text-xs text-slate-500">Menampilkan {feed.length} dari {history.length} data</p>
          <div className="flex gap-2">
-            <button className="px-3 py-1 border border-slate-200 rounded text-xs font-semibold text-slate-600 hover:bg-slate-50 transition">Prev</button>
-            <button className="px-3 py-1 border border-slate-200 rounded text-xs font-semibold text-slate-600 hover:bg-slate-50 transition">Next</button>
+          <button disabled className="px-3 py-1 border border-slate-200 rounded text-xs font-semibold text-slate-400 cursor-not-allowed">Prev</button>
+             <button disabled className="px-3 py-1 border border-slate-200 rounded text-xs font-semibold text-slate-400 cursor-not-allowed">Next</button>
          </div>
       </div>
     </section>

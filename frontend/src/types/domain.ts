@@ -18,10 +18,7 @@ export interface Employee {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
-  // Aliases for backward compatibility
-  studentCode?: string;
-  className?: string;
-  name?: string;
+
 }
 
 export interface Device {
@@ -54,10 +51,7 @@ export interface AttendanceRecord {
   faceDeviceCode: string;
   verifiedAt: string;
   createdAt: string;
-  // Aliases for backward compatibility
-  studentId?: string;
-  studentName?: string;
-  studentCode?: string;
+
 }
 
 export interface AttendanceSession {
@@ -97,4 +91,13 @@ export interface ToastMessage {
   kind: "success" | "error" | "info";
   title: string;
   description: string;
+}
+
+export interface SystemSettings {
+  entry_time: string;
+  exit_time: string;
+  early_exit_tolerance?: string;
+  overtime_threshold?: string;
+  working_days?: string;
+  holidays?: string;
 }

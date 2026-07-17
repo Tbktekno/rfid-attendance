@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { isToday, parseISO } from "date-fns";
 import { attendanceService } from "../services/attendance.service";
+import { settingsService } from "../services/settings.service";
 import type {
   AttendanceRecord,
   AttendanceSession,
@@ -8,7 +9,8 @@ import type {
   Device,
   RealtimeMessage,
   Employee,
-  ToastMessage
+  ToastMessage,
+  SystemSettings
 } from "../types/domain";
 
 interface AttendanceState {
@@ -29,7 +31,9 @@ interface AttendanceState {
   view: "log" | "report";
   isLoading: boolean;
   isStreaming: boolean;
+  settings: SystemSettings;
   refreshAll: () => Promise<void>;
+  refreshSessionsOnly: () => Promise<void>;
   fetchHistory: (page?: number, limit?: number) => Promise<void>;
   setPage: (page: number) => void;
   setPageSize: (size: number) => void;
@@ -42,8 +46,7 @@ interface AttendanceState {
   setMonthFilter: (value: string) => void;
   setEmployeeFilter: (value: string) => void;
   summary: () => AttendanceSummary;
-  // Backward compatibility
-  students: Employee[];
+  fetchSettings: () => Promise<void>;
 }
 
 const makeToast = (message: RealtimeMessage): ToastMessage | null => {
@@ -87,7 +90,6 @@ const getTodayStr = () => {
 
 export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   employees: [],
-  students: [],
   devices: [],
   sessions: [],
   history: [],
@@ -104,6 +106,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   view: "log",
   isLoading: false,
   isStreaming: false,
+  settings: { entry_time: "07:30", exit_time: "14:00" },
   async refreshAll() {
     set({ isLoading: true });
 
@@ -126,7 +129,6 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
 
       set({
         employees,
-        students: employees,
         devices,
         sessions,
         history: historyData.records,
@@ -170,6 +172,22 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   setPageSize(size) {
     get().fetchHistory(1, size);
   },
+  async refreshSessionsOnly() {
+    try {
+      const sessions = await attendanceService.getSessions();
+      set({ sessions });
+    } catch {
+      // silent
+    }
+  },
+  async fetchSettings() {
+    try {
+      const settings = await settingsService.getSettings();
+      set({ settings });
+    } catch {
+      // silent
+    }
+  },
   setStreaming(value) {
     set({ isStreaming: value });
   },
@@ -212,18 +230,23 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   summary() {
     const { history, sessions, devices } = get();
     const todayRecords = history.filter((record) => isToday(parseISO(record.verifiedAt)));
-    const validToday = todayRecords.filter((record) => record.status === "VALID").length;
+    const validTodayEmployees = new Set(
+      todayRecords
+        .filter((record) => record.status === "VALID")
+        .map((record) => record.employeeId)
+        .filter(Boolean)
+    ).size;
     const invalidToday = todayRecords.filter((record) => record.status === "INVALID").length;
     const activeSessions = sessions.filter((session) => session.status === "PENDING" || session.status === "READY").length;
     const onlineDevices = devices.filter((device) => device.isOnline).length;
 
     return {
       totalToday: todayRecords.length,
-      validToday,
+      validToday: validTodayEmployees,
       invalidToday,
       activeSessions,
       onlineDevices,
-      verificationRate: todayRecords.length ? Math.round((validToday / todayRecords.length) * 100) : 0
+      verificationRate: todayRecords.length ? Math.round((validTodayEmployees / todayRecords.length) * 100) : 0
     };
   }
 }));

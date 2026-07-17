@@ -319,7 +319,7 @@ export class AttendanceController {
     const response = await promisifyGrpc<{ records: Array<any> }>(
       grpcClients.attendance,
       "GetAttendanceHistory",
-      { ...payload, limit: 1000 } // Use the payload status filter, default no strict VALID so we can see BOLOS
+      { ...payload, limit: 5000 } // Use the payload status filter, default no strict VALID so we can see BOLOS
     );
 
     let fetchedEmployeeName = "";

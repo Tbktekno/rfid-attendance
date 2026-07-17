@@ -33,10 +33,12 @@ export class PdfGenerator {
     const isMonthly = !!(options?.month && options?.employeeName);
     const title = isMonthly ? "Laporan Absensi Karyawan (Bulanan)" : "Laporan Absensi Karyawan";
     
-    let totalHadir = 0;
+    let totalTepatWaktu = 0;
+    let totalTerlambat = 0;
     let totalBolos = 0;
     if (isMonthly) {
-       totalHadir = data.filter(d => d.punctuality !== "BOLOS").length;
+       totalTepatWaktu = data.filter(d => d.punctuality === "ON_TIME").length;
+       totalTerlambat = data.filter(d => d.punctuality === "LATE").length;
        totalBolos = data.filter(d => d.punctuality === "BOLOS").length;
     }
 
@@ -44,7 +46,7 @@ export class PdfGenerator {
       content: [
         { text: title, style: "header" },
         isMonthly ? { text: `Bulan: ${options.month}\nNama Karyawan: ${options.employeeName}`, style: "subheader" } : { text: `Tanggal Cetak: ${new Date().toLocaleString("id-ID")}`, style: "subheader" },
-        isMonthly ? { text: `Total Hadir: ${totalHadir} hari   |   Total Tidak Hadir: ${totalBolos} hari\n\n`, style: "subheader" } : { text: "\n" },
+        isMonthly ? { text: `✅ Tepat Waktu: ${totalTepatWaktu} hari   |   ⚠ Terlambat: ${totalTerlambat} hari   |   ❌ Tidak Hadir: ${totalBolos} hari\n\n`, style: "subheader" } : { text: "\n" },
         {
           table: {
             headerRows: 1,
@@ -81,25 +83,30 @@ export class PdfGenerator {
 
                 let kehadiranText = "-";
                 if (item.punctuality === "BOLOS") {
-                  kehadiranText = "Tidak Hadir";
+                  kehadiranText = isMonthly ? "Tidak Hadir" : "Pulang Terlalu Awal";
                 } else if (isMonthly) {
-                  kehadiranText = "Hadir";
+                  kehadiranText = item.punctuality === "ON_TIME" ? "Tepat Waktu" :
+                                  item.punctuality === "LATE" ? "Terlambat" :
+                                  item.punctuality === "EARLY_EXIT" ? "Pulang Awal" : "Hadir";
                 } else if (item.category === "ENTRY") {
                   kehadiranText = "Masuk";
                 } else if (item.category === "EXIT") {
                   kehadiranText = "Pulang";
                 }
 
-                let kehadiranColor = "#6b7280"; // Gray default
-                if (kehadiranText === "Masuk" || kehadiranText === "Hadir") kehadiranColor = "#10b981"; // Emerald
-                else if (kehadiranText === "Pulang") kehadiranColor = "#3b82f6"; // Blue
-                else if (kehadiranText === "Tidak Masuk" || kehadiranText === "Tidak Hadir") kehadiranColor = "#ef4444"; // Red
+                let kehadiranColor = "#6b7280";
+                if (kehadiranText === "Masuk" || kehadiranText === "Tepat Waktu") kehadiranColor = "#10b981";
+                else if (kehadiranText === "Pulang" || kehadiranText === "Hadir") kehadiranColor = "#3b82f6";
+                else if (kehadiranText === "Terlambat") kehadiranColor = "#f59e0b";
+                else if (kehadiranText === "Pulang Awal" || kehadiranText === "Pulang Terlalu Awal") kehadiranColor = "#f97316";
+                else if (kehadiranText === "Tidak Hadir") kehadiranColor = "#ef4444";
 
                 let punctualityText = item.punctuality === "ON_TIME" ? "Tepat Waktu" : 
                                       item.punctuality === "LATE" ? "Terlambat" : 
-                                      (item.punctuality === "EARLY" || item.punctuality === "EARLY_EXIT") ? "Pulang Cepat" : 
-                                      item.punctuality === "BOLOS" ? "Bolos" : "-";
-                let punctualityColor = (item.punctuality === "LATE" || item.punctuality === "BOLOS") ? "#ef4444" : 
+                                      item.punctuality === "EARLY_EXIT" ? "Pulang Cepat" : 
+                                      item.punctuality === "BOLOS" ? "Tidak Hadir" : "-";
+                let punctualityColor = item.punctuality === "LATE" ? "#f59e0b" : 
+                                       item.punctuality === "BOLOS" ? "#ef4444" : 
                                        (item.punctuality === "ON_TIME" ? "#10b981" : "#6b7280");
 
                 const jamHadirText = item.entryTime || (item.category === "ENTRY" ? timeStr : "-");

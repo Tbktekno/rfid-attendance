@@ -7,7 +7,6 @@ export const attendanceService = {
     limit?: number;
     status?: string;
     employeeId?: string;
-    studentId?: string;
     date?: string;
     month?: string;
     view?: "log" | "report";
@@ -17,7 +16,7 @@ export const attendanceService = {
         page: params.page ?? 1, 
         limit: params.limit ?? 50,
         status: params.status || undefined,
-        employeeId: params.employeeId || params.studentId || undefined,
+        employeeId: params.employeeId || undefined,
         date: params.date || undefined,
         month: params.month || undefined,
         view: params.view || undefined
@@ -39,10 +38,7 @@ export const attendanceService = {
     const { data } = await http.get<{ employees: Employee[] }>("/api/v1/employees");
     return data.employees;
   },
-  // Alias for backward compatibility
-  async getStudents(): Promise<Employee[]> {
-    return this.getEmployees();
-  },
+
   async deleteSession(id: string): Promise<void> {
     await http.delete(`/api/v1/attendance/sessions/${id}`);
   },

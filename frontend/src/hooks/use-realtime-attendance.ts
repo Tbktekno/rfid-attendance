@@ -1,5 +1,4 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { connectSocket } from "../services/realtime.service";
 import { useAttendanceStore } from "../state/attendance-store";
 import { useAuthStore } from "../state/auth-store";
@@ -8,45 +7,48 @@ import { useAuthStore } from "../state/auth-store";
 const POLL_INTERVAL_MS = 30_000;
 
 export const useRealtimeAttendance = (): void => {
-  const navigate = useNavigate();
   const token = useAuthStore((state) => state.token);
   const refreshAll = useAttendanceStore((state) => state.refreshAll);
   const pushRealtimeEvent = useAttendanceStore((state) => state.pushRealtimeEvent);
   const setStreaming = useAttendanceStore((state) => state.setStreaming);
+  const refreshSessionsOnly = useAttendanceStore((state) => state.refreshSessionsOnly);
 
   useEffect(() => {
     if (!token) {
       return;
     }
 
+    const isConnectedRef = { current: false };
+
     const socket = connectSocket({
       onMessage: (message) => {
         pushRealtimeEvent(message);
 
-        if (message.channel === "attendance" || message.channel === "device") {
+        if (message.type?.startsWith("attendance.")) {
           refreshAll();
-        }
-
-        if (message.type === "attendance.verification.completed") {
-          navigate("/history");
+        } else if (message.channel === "device") {
+          refreshSessionsOnly();
         }
       },
       onConnect: () => {
+        isConnectedRef.current = true;
         setStreaming(true);
       },
       onDisconnect: () => {
+        isConnectedRef.current = false;
         setStreaming(false);
       }
     });
 
-    // Fallback polling: refresh sessions periodically even if realtime events are lost
     const pollTimer = setInterval(() => {
-      refreshAll();
+      if (!isConnectedRef.current) {
+        refreshAll();
+      }
     }, POLL_INTERVAL_MS);
 
     return () => {
       socket.close();
       clearInterval(pollTimer);
     };
-  }, [pushRealtimeEvent, refreshAll, setStreaming, token]);
+  }, [pushRealtimeEvent, refreshAll, refreshSessionsOnly, setStreaming, token]);
 };

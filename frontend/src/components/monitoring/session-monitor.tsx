@@ -11,6 +11,7 @@ import { attendanceService } from "../../services/attendance.service";
 export const SessionMonitor = () => {
   const sessions = useAttendanceStore((state) => state.sessions);
   const employees = useAttendanceStore((state) => state.employees);
+  const settings = useAttendanceStore((state) => state.settings);
   const refreshAll = useAttendanceStore((state) => state.refreshAll);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -77,15 +78,21 @@ export const SessionMonitor = () => {
                     {employee?.department ?? "-"} · {employee?.position ?? "-"}
                   </p>
                   <div className="mt-2 flex items-center gap-2">
-                    {new Date(session.startedAt).getHours() < 11 ? (
-                      <span className="flex items-center gap-1 text-[10px] font-bold text-blue-600 uppercase bg-blue-50 px-2 py-0.5 rounded">
-                        <LogIn className="h-3 w-3" /> Masuk
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1 text-[10px] font-bold text-indigo-600 uppercase bg-indigo-50 px-2 py-0.5 rounded">
-                        <LogOut className="h-3 w-3" /> Pulang
-                      </span>
-                    )}
+                    {(() => {
+                      const startHour = new Date(session.startedAt).getHours() + new Date(session.startedAt).getMinutes() / 60;
+                      const exitHour = parseFloat(settings.exit_time?.replace(":", ".") || "14.00");
+                      const entryHour = parseFloat(settings.entry_time?.replace(":", ".") || "07.30");
+                      const midPoint = entryHour + (exitHour - entryHour) / 2;
+                      return startHour < midPoint ? (
+                        <span className="flex items-center gap-1 text-[10px] font-bold text-blue-600 uppercase bg-blue-50 px-2 py-0.5 rounded">
+                          <LogIn className="h-3 w-3" /> Masuk
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-[10px] font-bold text-indigo-600 uppercase bg-indigo-50 px-2 py-0.5 rounded">
+                          <LogOut className="h-3 w-3" /> Pulang
+                        </span>
+                      );
+                    })()}
                   </div>
                 </div>
                 <StatusBadge value={session.status} />

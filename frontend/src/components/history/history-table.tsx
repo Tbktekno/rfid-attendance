@@ -61,7 +61,7 @@ export const HistoryTable = () => {
               <th className="px-5 py-3">Tanggal</th>
               <th className="px-5 py-3">Jam</th>
               <th className="px-5 py-3">Jenis Presensi</th>
-              <th className="px-5 py-3">Status</th>
+              <th className="px-5 py-3">Ketepatan</th>
               <th className="px-5 py-3">Keterangan</th>
             </tr>
           </thead>
@@ -73,7 +73,7 @@ export const HistoryTable = () => {
                  </td>
                </tr>
             ) : history.map((record) => {
-              const employeeId = record.employeeId || record.studentId;
+              const employeeId = record.employeeId;
               const employee = employees.find((item) => item.id === employeeId);
               const captureUrl = resolveCaptureUrl(record.imagePath);
 
@@ -97,7 +97,7 @@ export const HistoryTable = () => {
               return (
                 <tr key={record.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/50 transition">
                   <td className="px-5 py-4">
-                    <p className="text-sm font-bold text-slate-900">{record.employeeName || record.studentName || employee?.fullName || "Tidak dikenali"}</p>
+                    <p className="text-sm font-bold text-slate-900">{record.employeeName || employee?.fullName || "Tidak dikenali"}</p>
                     <p className="text-[11px] text-slate-500">
                       {employee?.department || "-"} · {employee?.position || "-"}
                     </p>
@@ -125,8 +125,6 @@ export const HistoryTable = () => {
                       <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 uppercase">
                         <LogOut className="h-3.5 w-3.5" /> Pulang
                       </span>
-                    ) : view === "log" && record.punctuality === "BOLOS" ? (
-                      <span className="text-[11px] font-bold text-slate-400 uppercase">-</span>
                     ) : (
                       <span className="text-[11px] font-bold text-slate-400 uppercase">-</span>
                     )}
